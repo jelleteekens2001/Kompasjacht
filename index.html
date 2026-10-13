@@ -392,6 +392,15 @@
   </div>
 </div>
 
+<div class="overlay" id="ovInfo">
+  <div class="modal">
+    <div style="font-size:72px;line-height:1" id="infoIcon">🔍</div>
+    <h2 id="infoTitle"></h2>
+    <p id="infoText"></p>
+    <button class="primary" id="btnInfoOk">Oké</button>
+  </div>
+</div>
+
 <div class="overlay" id="ovShop">
   <div class="modal">
     <h2>Winkel</h2>
@@ -1193,7 +1202,7 @@ let ended = false;
 function endGame() {
   if (ended) return; ended = true;
   stopRunning();
-  ['ovClaim', 'ovCancel', 'ovShop', 'ovPick', 'ovStand'].forEach(id => $(id).classList.remove('show'));
+  ['ovClaim', 'ovCancel', 'ovShop', 'ovPick', 'ovStand', 'ovInfo'].forEach(id => $(id).classList.remove('show'));
   if (isHost() && G.meta.status === 'running') G.ref.child('meta/status').set('ended');
   clearSession();
   const render = () => {
@@ -1275,6 +1284,11 @@ function openShop() {
   $('ovShop').classList.add('show');
 }
 
+function showInfo(icon, title, text, color) {
+  $('infoIcon').textContent = icon; $('infoTitle').textContent = title; $('infoTitle').style.color = color || '';
+  $('infoText').textContent = text;
+  $('ovInfo').classList.add('show');
+}
 function shopCooldown() { return Math.max(0, (LS.shopCooldownUntil || 0) - now()); }
 
 async function buySelf(item) {
@@ -1284,8 +1298,10 @@ async function buySelf(item) {
     const t = target(); if (!t) return;
     if (!await spend(item.price, 'Winkel: ' + item.name)) return banner('Niet genoeg punten.', 'bad');
     const n = (t.claimCount || 0) - (t.claims && t.claims[ME.id] ? 1 : 0);
-    return banner(n === 0 ? 'Verkenner: jullie checkpoint is nog door niemand geclaimd.' :
-      n === 1 ? 'Verkenner: jullie checkpoint is al 1 keer geclaimd. Je kunt nog 20% halen.' : 'Verkenner: jullie checkpoint is al ' + n + ' keer geclaimd. Hier valt niks meer te halen.');
+    const gold = t.type === 'goud';
+    if (n === 0) return showInfo('✅', 'Nog niemand geweest!', 'Jullie checkpoint is nog door geen enkel team geclaimd. Als jullie als eerste aankomen, krijg je de volle waarde.', 'var(--accent)');
+    if (n === 1 && !gold) return showInfo('⚠️', 'Er was al één team', 'Jullie checkpoint is al 1 keer geclaimd. Je kunt hier nog 20% halen.', 'var(--gold)');
+    return showInfo('❌', 'Te laat!', 'Jullie checkpoint is al ' + n + ' keer geclaimd. Hier valt niks meer te halen. Annuleren is misschien slimmer.', 'var(--danger)');
   }
   if (!await spend(item.price, 'Winkel: ' + item.name)) return banner('Niet genoeg punten.', 'bad');
   if (item.id === 'radar') LS.radarUntil = now() + RADAR_SECONDS * 1000;
@@ -1384,6 +1400,7 @@ $('btnClaimOk').onclick = () => { $('ovClaim').classList.remove('show'); drawZon
 $('btnNew').onclick = () => { location.reload(); };
 $$('[data-shop]').forEach(b => b.onclick = openShop);
 $$('[data-stand]').forEach(b => b.onclick = () => { renderStand(); $('ovStand').classList.add('show'); });
+$('btnInfoOk').onclick = () => $('ovInfo').classList.remove('show');
 $('btnShopClose').onclick = () => $('ovShop').classList.remove('show');
 $('btnPickClose').onclick = () => $('ovPick').classList.remove('show');
 $('btnStandClose').onclick = () => $('ovStand').classList.remove('show');
