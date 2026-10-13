@@ -224,7 +224,7 @@
     <ol>
       <li><strong>Kies een zone.</strong> Op de kaart staan vlekken met hun puntwaarde. Ergens in zo'n vlek ligt een checkpoint, niet per se in het midden. In <strong>Eindhoven</strong> is elk checkpoint een bankje; in <strong>Schagerbrug</strong> een herkenbare plek, zoals de kerk, een brug, een bushalte of de speeltuin.</li>
       <li><strong>Volg het kompas.</strong> Na het kiezen verdwijnt de kaart. Je ziet alleen nog een pijl en de afstand in vogelvlucht. Een andere route zoeken mag, de pijl wijst altijd recht naar het checkpoint.</li>
-      <li><strong>Vind het checkpoint.</strong> Sta er dichtbij en je claimt automatisch: in Eindhoven binnen 10 meter van het bankje, in Schagerbrug binnen 25 meter. Je krijgt geen seintje als je in de buurt bent: kijk zelf goed rond.</li>
+      <li><strong>Vind het checkpoint.</strong> Sta binnen <strong>3 meter</strong> van het checkpoint en je claimt automatisch. Je krijgt geen seintje als je in de buurt bent: kijk zelf goed rond.</li>
       <li><strong>Volgende!</strong> Pas na een claim kies je een nieuwe zone. Je kunt dus maar één checkpoint tegelijk zoeken.</li>
     </ol>
   </div>
@@ -446,7 +446,7 @@ const CONFIG = {
   respawnEvery: 3,          // na elke 3 verdwenen punten...
   respawnCount: 3,          // ...komen er 3 nieuwe bij
   zoneRadius: 325,          // straal van de zone (m)
-  claimRadius: 10,          // binnen deze afstand van het bankje claim je automatisch (m)
+  claimRadius: 3,           // binnen deze afstand van het checkpoint claim je automatisch (m)
   pointValue: 100,          // elk bankje is evenveel waard
   goldValue: 300,           // gouden bankje
   mapMaxZoom: 16,           // verder inzoomen kan niet (anders zie je de bankjes op de kaart)
@@ -510,11 +510,11 @@ function decode(str, lat0, lng0, prefix) {
 const FIELDS = {
   eindhoven: {
     name: 'Eindhoven', ring: SPEELVELD, candidates: () => decode(BANKJES, 51.4, 5.45, 'b'),
-    config: { zoneRadius: 325, claimRadius: 10, minDistBetweenPoints: 200, minDistFromPlayer: 250, mapMaxZoom: 16, mapMinZoom: 11 }
+    config: { zoneRadius: 325, claimRadius: 3, minDistBetweenPoints: 200, minDistFromPlayer: 250, mapMaxZoom: 16, mapMinZoom: 11 }
   },
   schagerbrug: {
     name: 'Schagerbrug', ring: SPEELVELD_SB, candidates: () => decode(PLEKKEN_SB, 52.79, 4.74, 's'),
-    config: { zoneRadius: 110, claimRadius: 25, minDistBetweenPoints: 110, minDistFromPlayer: 140, mapMaxZoom: 17, mapMinZoom: 13 }
+    config: { zoneRadius: 110, claimRadius: 3, minDistBetweenPoints: 110, minDistFromPlayer: 140, mapMaxZoom: 17, mapMinZoom: 13 }
   }
 };
 let FIELD_KEY = 'eindhoven', CANDIDATES = [], CAND_BY_ID = {}, FIELD = [];
