@@ -104,6 +104,7 @@
   .lookfor { font-size: 18px; text-align: center; }
   .meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .navfoot { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+  .waitbody { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; }
   #radarMap { width: min(80vw, 340px); height: 200px; border-radius: 16px; display: none; flex-shrink: 0; }
 
   /* Overlays */
@@ -329,6 +330,21 @@
   </div>
 </section>
 
+<!-- WACHTEN (na annuleren met tijdsstraf) -->
+<section id="wait" class="screen">
+  <div class="hud">
+    <div><div class="small">Punten</div><div class="score" data-score>0</div></div>
+    <div class="hudbtns"><button class="pill stand" data-stand>Stand</button><button class="pill shop" data-shop>Winkel</button></div>
+    <div style="text-align:right"><div class="small">Tijd</div><div class="time" data-time>--:--</div></div>
+  </div>
+  <div class="body waitbody">
+    <div style="font-size:56px">⏳</div>
+    <h2 style="margin:0">Even wachten</h2>
+    <p class="small" style="text-align:center;max-width:280px">Je hebt je bankje geannuleerd. Daarna kies je een nieuw bankje op de kaart.</p>
+    <div class="dist" id="waitLeft">2:00</div>
+  </div>
+</section>
+
 <!-- END -->
 <section id="end" class="screen">
   <h1 style="margin:0">Spel afgelopen!</h1>
@@ -413,7 +429,7 @@ const CONFIG = {
   minPoints: 6,             // ...maar minstens zoveel
   respawnEvery: 3,          // na elke 3 verdwenen punten...
   respawnCount: 3,          // ...komen er 3 nieuwe bij
-  zoneRadius: 250,          // straal van de zone-cirkel (m)
+  zoneRadius: 325,          // straal van de zone (m)
   claimRadius: 10,          // binnen deze afstand van het bankje claim je automatisch (m)
   pointValue: 100,          // elk bankje is evenveel waard
   goldValue: 300,           // gouden bankje
@@ -935,7 +951,7 @@ function startRunning() {
   clearInterval(tickTimer);
   tickTimer = setInterval(tick, 1000);
   if (LS.targetId && !target()) show('nav');      // punten nog aan het laden: niet de kaart tonen
-  else if (target()) enterNav(); else show('overview');
+  else if (target()) enterNav(); else toMap();
   tick();
 }
 function stopRunning() {
@@ -964,7 +980,7 @@ function choose() {
 
 let radarMap = null, radarTarget = null, radarMe = null;
 function enterNav() {
-  const t = target(); if (!t) { show('overview'); return; }
+  const t = target(); if (!t) { toMap(); return; }
   if (radarMap) radarMap._fitted = false;
   $('navLookFor').textContent = t.type === 'goud' ? 'het gouden bankje' : 'het bankje';
   $('navValue').textContent = t.value + ' punten';
@@ -1056,10 +1072,18 @@ function banner(text, kind = '') {
   clearTimeout(bannerTimer); bannerTimer = setTimeout(() => b.classList.remove('show'), 7000);
 }
 
+// Naar de kaart, of eerst het wachtscherm als er nog een tijdsstraf loopt
+function toMap() { show(LS && now() < LS.lockedUntil ? 'wait' : 'overview'); }
+
 function tick() {
   if (!G || !G.meta || G.meta.status !== 'running') return;
   if (now() >= G.meta.endsAt) return endGame();
   renderHud(); renderNavTags(); renderRadar();
+  if (shownScreen === 'wait') {
+    const left = LS.lockedUntil - now();
+    if (left <= 0) { show('overview'); banner('Je mag weer een bankje kiezen.', 'gold'); }
+    else $('waitLeft').textContent = fmtTime(left);
+  }
   if (LS.spyUntil && LS.spyUntil < now()) { LS.spyUntil = 0; drawZones(); }
   if (Math.floor(Date.now() / 1000) % 5 === 0) maybeSpawnGold();
 }
@@ -1227,7 +1251,7 @@ function finishCancel() {
   LS.targetId = null; saveLocal();
   G.ref.child('teams/' + ME.id + '/target').remove();
   $('ovCancel').classList.remove('show');
-  drawZones(); show('overview'); renderHud();
+  drawZones(); toMap(); renderHud();
 }
 
 /* =========================================================
@@ -1241,7 +1265,7 @@ $('btnStartGame').onclick = startGameAsHost;
 $('btnLeave').onclick = leaveGame;
 $('btnSheetClose').onclick = closeSheet;
 $('btnChoose').onclick = choose;
-$('btnClaimOk').onclick = () => { $('ovClaim').classList.remove('show'); drawZones(); show('overview'); };
+$('btnClaimOk').onclick = () => { $('ovClaim').classList.remove('show'); drawZones(); toMap(); };
 $('btnNew').onclick = () => { location.reload(); };
 $$('[data-shop]').forEach(b => b.onclick = openShop);
 $$('[data-stand]').forEach(b => b.onclick = () => { renderStand(); $('ovStand').classList.add('show'); });
