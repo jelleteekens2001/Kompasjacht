@@ -539,7 +539,13 @@ let geoWatch = null, tickTimer = null, wakeLock = null, claiming = false, lastPo
 function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
-function saveLocal() { if (G) lsSet('kj-local-' + G.code, LS); }
+function saveLocal() { if (G) lsSet('kj-local-' + G.code + '-' + ME.id, LS); }
+function getSession() {
+  try { const s = JSON.parse(sessionStorage.getItem('kj-session')); if (s) return s; } catch (e) {}
+  return lsGet('kj-session');
+}
+function setSession(v) { try { sessionStorage.setItem('kj-session', JSON.stringify(v)); } catch (e) {} lsSet('kj-session', v); }
+function clearSession() { try { sessionStorage.removeItem('kj-session'); } catch (e) {} lsDel('kj-session'); }
 
 function initFirebase() {
   if (db) return true;
@@ -604,7 +610,7 @@ async function joinGame() {
 }
 
 function resumeGame() {
-  const s = lsGet('kj-session'); if (!s) return;
+  const s = getSession(); if (!s) return;
   if (!initFirebase()) return;
   primeSensors();
   ME.id = s.teamId; ME.name = s.name;
@@ -612,11 +618,11 @@ function resumeGame() {
 }
 
 function enterGame(code) {
-  lsSet('kj-session', { code, teamId: ME.id, name: ME.name });
+  setSession({ code, teamId: ME.id, name: ME.name });
   const ref = db.ref('games/' + code);
   G = { code, ref, meta: null, teams: {}, points: {}, state: {} };
   LS = Object.assign({ targetId: null, lockedUntil: 0, boosts: {}, radarUntil: 0, spyUntil: 0, spyPid: null,
-    log: [], seenHit: 0, seenPoints: {} }, lsGet('kj-local-' + code) || {});
+    log: [], seenHit: 0, seenPoints: {} }, lsGet('kj-local-' + code + '-' + ME.id) || {});
   ref.child('meta').on('value', s => { G.meta = s.val(); onMeta(); });
   ref.child('teams').on('value', s => { G.teams = s.val() || {}; onTeams(); });
   ref.child('points').on('value', s => { G.points = s.val() || {}; onPoints(); });
@@ -629,7 +635,7 @@ function enterGame(code) {
 function leaveGame() {
   if (G) { G.ref.off(); G.ref.child('teams/' + ME.id + '/online').set(false); }
   stopRunning();
-  lsDel('kj-session');
+  clearSession();
   G = null; LS = null;
   location.reload();
 }
@@ -637,7 +643,7 @@ function leaveGame() {
 let shownScreen = null;
 function onMeta() {
   const m = G.meta;
-  if (!m) { showErr('Dit spel bestaat niet meer.'); lsDel('kj-session'); show('start'); return; }
+  if (!m) { showErr('Dit spel bestaat niet meer.'); clearSession(); show('start'); return; }
   if (m.status === 'lobby') {
     show('lobby');
     $('lobbyInfo').textContent = m.durationMin + ' minuten · deel deze code met de andere teams';
@@ -877,11 +883,19 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 /* =========================================================
    KAART
    ========================================================= */
+let fieldBounds = null, fieldFitted = false;
+// Toon het hele speelveld; pas uitvoeren als de kaart echt zichtbaar is (anders zoomt Leaflet maximaal in)
+function fitField() {
+  if (!map || !fieldBounds || fieldFitted || shownScreen !== 'overview') return;
+  map.invalidateSize();
+  map.fitBounds(fieldBounds, { padding: [8, 8] });
+  fieldFitted = true;
+}
 let map = null, zoneLayer = null, playerMarker = null, selectedId = null;
 
 function initMap() {
   if (map) return;
-  map = L_.map('map', { zoomControl: false, maxZoom: CONFIG.mapMaxZoom, minZoom: 12 });
+  map = L_.map('map', { zoomControl: false, maxZoom: CONFIG.mapMaxZoom, minZoom: 11, zoomSnap: 0.25 });
   L_.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: CONFIG.mapMaxZoom, attribution: '&copy; OpenStreetMap' }).addTo(map);
   // grijze gloed over alles buiten het speelveld
   const world = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
@@ -889,8 +903,9 @@ function initMap() {
   const edge = L_.polygon(FIELD, { color: '#0f172a', weight: 2, opacity: .6, fill: false, interactive: false }).addTo(map);
   zoneLayer = L_.layerGroup().addTo(map);
   map.on('click', closeSheet);
-  map.fitBounds(edge.getBounds(), { padding: [10, 10] });
-  map.setMaxBounds(edge.getBounds().pad(0.6));
+  fieldBounds = edge.getBounds();
+  map.setMaxBounds(fieldBounds.pad(0.6));
+  fitField();
 }
 
 /* Grillige zonevorm: voor iedereen gelijk (vaste seed per punt), en het bankje ligt er altijd binnen. */
@@ -944,7 +959,7 @@ function show(id) {
   if (shownScreen === id) return;
   shownScreen = id;
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
-  if (id === 'overview' && map) setTimeout(() => map.invalidateSize(), 50);
+  if (id === 'overview' && map) setTimeout(() => { map.invalidateSize(); fitField(); }, 50);
 }
 
 function startRunning() {
@@ -1109,7 +1124,7 @@ function endGame() {
   stopRunning();
   ['ovClaim', 'ovCancel', 'ovShop', 'ovPick', 'ovStand'].forEach(id => $(id).classList.remove('show'));
   if (isHost() && G.meta.status === 'running') G.ref.child('meta/status').set('ended');
-  lsDel('kj-session');
+  clearSession();
   const render = () => {
     $('endScore').textContent = myScore();
     const ranking = sortedTeams();
@@ -1304,7 +1319,7 @@ $('hostTeam').value = $('joinTeam').value = lsGet('kj-team') || '';
 $$('[data-go]').forEach(b => b.onclick = () => { showErr(''); show(b.dataset.go); });
 // Lopend spel? Dan direct terug, zonder knop (bijv. na herladen van de pagina)
 (() => {
-  const s = lsGet('kj-session');
+  const s = getSession();
   if (s) {
     $('btnResume').style.display = 'block'; $('btnResume').textContent = 'Terug naar spel ' + s.code + ' (' + s.name + ')';
     resumeGame();
