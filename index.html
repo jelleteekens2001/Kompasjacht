@@ -232,7 +232,7 @@
     <h3>🏆 Punten</h3>
     <ul>
       <li>Elk team begint met <strong>100 punten</strong> startbudget, zodat je meteen iets in de winkel kunt kopen.</li>
-      <li>Elk checkpoint is <strong>100 punten</strong> waard, maar <strong>de waarde loopt af</strong> zodra je het kiest: 5% per minuut, tot minimaal 30%. Hoe sneller je er bent, hoe meer je krijgt. Je ziet het actuele percentage in het kompasscherm.</li>
+      <li>Elk checkpoint is <strong>100 punten</strong> waard, maar <strong>de waarde loopt af</strong> vanaf 3 minuten na het kiezen: 5% per minuut, tot minimaal 30%. Hoe sneller je er bent, hoe meer je krijgt. Je ziet het actuele percentage in het kompasscherm.</li>
       <li>Alle teams zien dezelfde checkpoints. Het <strong>eerste</strong> team krijgt 100, het <strong>tweede</strong> 20, daarna niks. Na twee claims verdwijnt het checkpoint.</li>
       <li>Je ziet <strong>niet</strong> of een ander team er al geweest is. Dat merk je pas als je er bent. Een team dat al onderweg is, houdt zijn checkpoint, ook als het intussen verdwenen is.</li>
       <li>Elke keer als er 3 checkpoints verdwenen zijn, komen er 3 nieuwe bij.</li>
@@ -452,7 +452,8 @@ const CONFIG = {
   mapMaxZoom: 16,           // verder inzoomen kan niet (anders zie je de bankjes op de kaart)
   startBudget: 100,         // punten waarmee elk team begint
   shopCooldownMin: 5,       // na een aankoop in de winkel: 5 minuten niks kopen
-  decayPerMin: 0.05,        // een gekozen checkpoint verliest 5% van zijn waarde per minuut onderweg...
+  decayGraceMin: 3,         // de eerste 3 minuten na het kiezen blijft de waarde 100%...
+  decayPerMin: 0.05,        // ...daarna verliest het checkpoint 5% van zijn waarde per minuut...
   decayFloor: 0.3,          // ...maar blijft minstens 30% waard
   claimsPerPoint: 2,        // een punt verdwijnt na 2 claims
   payout: [1, 0.2],         // 1e claim 100%, 2e claim 20%, daarna niks
@@ -1052,7 +1053,7 @@ function enterNav() {
 
 /* Waarde van het gekozen checkpoint loopt af zolang je onderweg bent */
 function decayFactor() {
-  const mins = Math.max(0, (now() - (LS.targetSince || now())) / 60000);
+  const mins = Math.max(0, (now() - (LS.targetSince || now())) / 60000 - CONFIG.decayGraceMin);
   return Math.max(CONFIG.decayFloor, 1 - CONFIG.decayPerMin * mins);
 }
 function liveValue(p) { return Math.round(p.value * decayFactor()); }
