@@ -343,6 +343,9 @@
     <p class="small" style="text-align:center;max-width:280px">Je hebt je bankje geannuleerd. Daarna kies je een nieuw bankje op de kaart.</p>
     <div class="dist" id="waitLeft">2:00</div>
   </div>
+  <div class="navfoot">
+    <button id="btnBuyOff" class="primary"></button>
+  </div>
 </section>
 
 <!-- END -->
@@ -1072,8 +1075,19 @@ function banner(text, kind = '') {
   clearTimeout(bannerTimer); bannerTimer = setTimeout(() => b.classList.remove('show'), 7000);
 }
 
+function renderBuyOff() {
+  const ok = myScore() >= CONFIG.cancelPointCost;
+  $('btnBuyOff').disabled = !ok;
+  $('btnBuyOff').textContent = ok ? 'Wachttijd afkopen voor ' + CONFIG.cancelPointCost + ' punten' : 'Afkopen kost ' + CONFIG.cancelPointCost + ' punten';
+}
+async function buyOffWait() {
+  if (!(await spend(CONFIG.cancelPointCost, 'Wachttijd afgekocht'))) return banner('Niet genoeg punten.', 'bad');
+  LS.lockedUntil = 0; saveLocal();
+  renderHud(); show('overview');
+}
+
 // Naar de kaart, of eerst het wachtscherm als er nog een tijdsstraf loopt
-function toMap() { show(LS && now() < LS.lockedUntil ? 'wait' : 'overview'); }
+function toMap() { const w = LS && now() < LS.lockedUntil; show(w ? 'wait' : 'overview'); if (w) { $('waitLeft').textContent = fmtTime(LS.lockedUntil - now()); renderBuyOff(); } }
 
 function tick() {
   if (!G || !G.meta || G.meta.status !== 'running') return;
@@ -1083,6 +1097,7 @@ function tick() {
     const left = LS.lockedUntil - now();
     if (left <= 0) { show('overview'); banner('Je mag weer een bankje kiezen.', 'gold'); }
     else $('waitLeft').textContent = fmtTime(left);
+    renderBuyOff();
   }
   if (LS.spyUntil && LS.spyUntil < now()) { LS.spyUntil = 0; drawZones(); }
   if (Math.floor(Date.now() / 1000) % 5 === 0) maybeSpawnGold();
@@ -1280,6 +1295,7 @@ $('btnCancel').onclick = () => {
   $('ovCancel').classList.add('show');
 };
 $('btnCancelTime').onclick = () => cancelTarget(true);
+$('btnBuyOff').onclick = buyOffWait;
 $('btnCancelPoints').onclick = () => cancelTarget(false);
 $('btnCancelBack').onclick = () => $('ovCancel').classList.remove('show');
 
