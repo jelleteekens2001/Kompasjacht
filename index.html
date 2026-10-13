@@ -124,6 +124,12 @@
   .item .txt strong { display: block; }
   .item button { padding: 10px 12px; white-space: nowrap; }
   .sec { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .shopwait { display: none; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0 8px; }
+  .shopwait.show { display: flex; }
+  .hourglass { font-size: 110px; line-height: 1; animation: flip 3s ease-in-out infinite; }
+  @keyframes flip { 0%, 70% { transform: rotate(0); } 85%, 100% { transform: rotate(180deg); } }
+  .bar { width: 80%; height: 10px; background: var(--panel2); border-radius: 99px; overflow: hidden; }
+  .bar div { height: 100%; background: var(--gold); width: 0; transition: width 1s linear; }
   .shopgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .tile { position: relative; padding: 14px 6px 10px; border-radius: 16px; background: var(--panel2); display: flex; flex-direction: column;
     align-items: center; gap: 4px; text-align: center; border: 2px solid transparent; }
@@ -390,6 +396,12 @@
   <div class="modal">
     <h2>Winkel</h2>
     <p><strong id="shopScore">0</strong> punten · werkt direct<span id="shopCool" style="color:var(--gold)"></span></p>
+    <div class="shopwait" id="shopWait">
+      <div class="hourglass">⏳</div>
+      <div class="dist" id="shopWaitLeft">5:00</div>
+      <div class="small">Na een aankoop kun je 5 minuten niks kopen.</div>
+      <div class="bar"><div id="shopWaitBar"></div></div>
+    </div>
     <div class="list" id="shopList"></div>
     <button class="danger" id="btnShopClose">Sluiten</button>
   </div>
@@ -1166,7 +1178,7 @@ function tick() {
   if (now() >= G.meta.endsAt) return endGame();
   renderHud(); renderNavTags(); renderRadar();
   if (shownScreen === 'nav') renderValue();
-  if ($('ovShop').classList.contains('show') && (shopCooldown() > 0 || $('shopCool').textContent)) openShop();   // aftellen bijwerken
+  if ($('ovShop').classList.contains('show') && (shopCooldown() > 0 || $('shopWait').classList.contains('show'))) openShop();   // aftellen bijwerken
   if (shownScreen === 'wait') {
     const left = LS.lockedUntil - now();
     if (left <= 0) { show('overview'); banner('Je mag weer een checkpoint kiezen.', 'gold'); }
@@ -1222,7 +1234,14 @@ async function spend(amount, label) {
 
 function openShop() {
   $('shopScore').textContent = myScore();
-  $('shopCool').textContent = shopCooldown() > 0 ? ' · volgende aankoop over ' + fmtTime(shopCooldown()) : '';
+  const cool = shopCooldown();
+  $('shopCool').textContent = '';
+  $('shopWait').classList.toggle('show', cool > 0);
+  $('shopList').style.display = cool > 0 ? 'none' : '';
+  if (cool > 0) {
+    $('shopWaitLeft').textContent = fmtTime(cool);
+    $('shopWaitBar').style.width = (100 - cool / (CONFIG.shopCooldownMin * 60000) * 100) + '%';
+  }
   const list = $('shopList'); list.innerHTML = '';
   let section = '', grid = null;
   const others = Object.keys(G.teams).filter(id => id !== ME.id).length;
