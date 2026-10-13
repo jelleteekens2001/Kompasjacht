@@ -27,9 +27,23 @@
   h3 { margin: 4px 0 0; font-size: 16px; }
 
   /* Start & lobby */
-  #start, #lobby { padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; gap: 16px; }
+  .hero { text-align: center; margin-top: 8vh; display: flex; flex-direction: column; gap: 6px; }
+  .logo { font-size: 64px; }
+  #start h1 { margin: 0; font-size: 38px; letter-spacing: -.5px; }
+  .menu { display: flex; flex-direction: column; gap: 12px; margin-top: 4vh; }
+  button.big { font-size: 20px; padding: 18px; text-align: left; display: flex; flex-direction: column; gap: 2px; border-radius: 18px; }
+  button.big span { font-size: 13px; font-weight: 500; opacity: .75; }
+  button.ghost { background: transparent; border: 1px solid var(--line); }
+  .sub h2 { margin: 0; font-size: 28px; }
+  .lead { margin: 0; color: var(--muted); line-height: 1.5; }
+  .back { align-self: flex-start; background: transparent; padding: 6px 0; color: var(--muted); }
+  .rules p { margin: 0; line-height: 1.5; }
+  .iconlist { list-style: none; padding-left: 0 !important; }
+  .iconlist b { display: inline-block; min-width: 9.5em; }
+  #start, #lobby, .sub { padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; gap: 16px; }
   #start h1 { margin: 12px 0 0; font-size: 34px; letter-spacing: -.5px; }
   #start p { margin: 0; color: var(--muted); line-height: 1.5; }
+  .err { color: #fca5a5; font-size: 14px; min-height: 1em; text-align: center; }
   .card { background: var(--panel); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
   .card label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   input[type=number], input[type=text] { font: inherit; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
@@ -103,6 +117,16 @@
   .item .txt strong { display: block; }
   .item button { padding: 10px 12px; white-space: nowrap; }
   .sec { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .shopgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { position: relative; padding: 14px 6px 10px; border-radius: 16px; background: var(--panel2); display: flex; flex-direction: column;
+    align-items: center; gap: 4px; text-align: center; border: 2px solid transparent; }
+  .tile:not(:disabled):active { transform: scale(.96); }
+  .tile:not(:disabled) { border-color: rgba(34,197,94,.5); }
+  .tile.attack:not(:disabled) { border-color: rgba(239,68,68,.55); }
+  .tile .ic { font-size: 32px; line-height: 1.1; }
+  .tile .nm { font-size: 13px; font-weight: 700; }
+  .tile .sh { font-size: 11px; color: var(--muted); font-weight: 500; line-height: 1.25; }
+  .tile .pr { position: absolute; top: 6px; right: 6px; font-size: 11px; font-weight: 800; background: var(--gold); color: #422006; border-radius: 99px; padding: 2px 7px; }
 
   /* Standings */
   .board { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: r; text-align: left; }
@@ -123,55 +147,116 @@
 
 <!-- START -->
 <section id="start" class="screen active">
-  <h1>Kompasjacht</h1>
-  <p>Race met je team langs echte plekken in Eindhoven en verzamel de meeste punten voordat de tijd om is.</p>
-
-  <div class="card">
-    <label>Teamnaam <input id="optTeam" type="text" maxlength="24" placeholder="Bijv. De Bankzitters"></label>
+  <div class="hero">
+    <div class="logo">🧭</div>
+    <h1>Kompasjacht</h1>
+    <p>Race met je team langs de bankjes van Eindhoven.</p>
   </div>
-
-  <div class="card">
-    <h3>Meedoen</h3>
-    <div class="small">Vraag de spelleider om de code.</div>
-    <div class="row2">
-      <input id="optCode" type="text" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters">
-      <button id="btnJoin" class="primary">Meedoen</button>
-    </div>
+  <div class="menu">
+    <button class="big primary" data-go="host">👑 Start spel<span>Je bent de spelleider</span></button>
+    <button class="big" data-go="join">🔑 Join spel<span>Met een code van de spelleider</span></button>
+    <button class="big ghost" data-go="uitleg">📖 Uitleg<span>Zo werkt het spel</span></button>
   </div>
-
-  <div class="card">
-    <h3>Of start een nieuw spel als spelleider</h3>
-    <label>Speelduur (minuten) <input id="optDuration" type="number" min="5" max="240" value="75"></label>
-    <button id="btnCreate">Nieuw spel maken</button>
-  </div>
-
   <button id="btnResume" class="primary" style="display:none"></button>
-  <div class="err" id="startErr"></div>
+  <div class="err"></div>
+</section>
 
-  <div class="card rules">
-    <h3>Zo speel je</h3>
-    <ol>
-      <li><strong>Kies een zone.</strong> Op de kaart staan cirkels met hun puntwaarde. Het punt ligt ergens in de cirkel, niet per se in het midden.</li>
-      <li><strong>Volg het kompas.</strong> Na het kiezen zie je alleen nog een pijl, de afstand in vogelvlucht en wat je zoekt.</li>
-      <li><strong>Claim het punt.</strong> Sta binnen 20 meter en je claimt automatisch. Je krijgt geen seintje als je dichtbij bent.</li>
-      <li><strong>Kies het volgende punt.</strong> Pas na een claim kun je een nieuwe zone kiezen.</li>
-    </ol>
-    <h3>Punten</h3>
-    <ul>
-      <li>Bankje of picknicktafel <strong>60</strong> · kunstwerk, fontein of monument <strong>100</strong> · iconische plek <strong>150</strong>.</li>
-      <li>Alle teams zien dezelfde punten. Het <strong>eerste</strong> team krijgt alles, het <strong>tweede</strong> 20%, daarna niks. Daarna verdwijnt het punt.</li>
-      <li>Je ziet niet of andere teams er al geweest zijn. Dat merk je pas bij aankomst.</li>
-      <li>Op minuut 25 en 55 verschijnt een <strong>gouden punt</strong> van 300. Alleen het eerste team scoort.</li>
-      <li>Na elke 3 verdwenen punten komen er 3 nieuwe bij.</li>
-    </ul>
-    <h3>Annuleren en winkel</h3>
-    <ul>
-      <li>Annuleer je punt voor <strong>2 minuten wachten</strong> of <strong>40 punten</strong>.</li>
-      <li>In de <strong>winkel</strong> koop je powerups met je punten: om jezelf te helpen of andere teams dwars te zitten. Een team kan maximaal één keer per 10 minuten gesaboteerd worden.</li>
-    </ul>
-    <h3>Speelveld</h3>
-    <p>Centrum, Stratum, Rozenknopje en De Laak. Verkeersregels gaan altijd voor.</p>
+<!-- HOST -->
+<section id="host" class="screen sub">
+  <button class="back" data-go="start">← Terug</button>
+  <h2>Start spel</h2>
+  <p class="lead">Jij bent de spelleider: je krijgt een code voor de andere teams en start en stopt het spel voor iedereen.</p>
+  <div class="card">
+    <label>Teamnaam <input id="hostTeam" type="text" maxlength="24" placeholder="Bijv. De Bankzitters"></label>
+    <label>Speelduur (minuten) <input id="optDuration" type="number" min="5" max="240" value="75"></label>
   </div>
+  <button id="btnCreate" class="primary">Maak spel en toon code</button>
+  <div class="err"></div>
+</section>
+
+<!-- JOIN -->
+<section id="join" class="screen sub">
+  <button class="back" data-go="start">← Terug</button>
+  <h2>Join spel</h2>
+  <p class="lead">Vul de code in die de spelleider op zijn scherm ziet.</p>
+  <div class="card">
+    <label>Code <input id="optCode" type="text" maxlength="4" placeholder="ABCD" autocomplete="off" autocapitalize="characters"></label>
+    <label>Teamnaam <input id="joinTeam" type="text" maxlength="24" placeholder="Bijv. Snelle Jelle"></label>
+  </div>
+  <button id="btnJoin" class="primary">Meedoen</button>
+  <div class="err"></div>
+</section>
+
+<!-- UITLEG -->
+<section id="uitleg" class="screen sub">
+  <button class="back" data-go="start">← Terug</button>
+  <h2>Uitleg</h2>
+  <div class="card rules">
+    <h3>🎯 Het doel</h3>
+    <p>Verzamel met je team zoveel mogelijk punten voordat de tijd om is, door naar echte bankjes in Eindhoven te gaan. Het team met de meeste punten wint.</p>
+  </div>
+  <div class="card rules">
+    <h3>👑 Een spel starten</h3>
+    <ul>
+      <li>Eén team kiest <strong>Start spel</strong> en wordt spelleider. Die stelt de speelduur in en krijgt een code van 4 tekens.</li>
+      <li>De andere teams kiezen <strong>Join spel</strong> en vullen die code en hun teamnaam in.</li>
+      <li>De spelleider ziet wie er meedoet en start het spel voor iedereen tegelijk. De spelleider kan het spel ook eerder stoppen.</li>
+      <li>Speel met één telefoon per team.</li>
+    </ul>
+  </div>
+  <div class="card rules">
+    <h3>🧭 Een ronde</h3>
+    <ol>
+      <li><strong>Kies een zone.</strong> Op de kaart staan vlekken met hun puntwaarde. Ergens in zo'n vlek staat een bankje, niet per se in het midden.</li>
+      <li><strong>Volg het kompas.</strong> Na het kiezen verdwijnt de kaart. Je ziet alleen nog een pijl en de afstand in vogelvlucht. Een andere route zoeken mag, de pijl wijst altijd recht naar het bankje.</li>
+      <li><strong>Vind het bankje.</strong> Sta binnen 10 meter van het bankje en je claimt automatisch. Je krijgt geen seintje als je in de buurt bent: kijk zelf goed rond.</li>
+      <li><strong>Volgende!</strong> Pas na een claim kies je een nieuwe zone. Je kunt dus maar één bankje tegelijk zoeken.</li>
+    </ol>
+  </div>
+  <div class="card rules">
+    <h3>🏆 Punten</h3>
+    <ul>
+      <li>Elk bankje is <strong>100 punten</strong> waard.</li>
+      <li>Alle teams zien dezelfde bankjes. Het <strong>eerste</strong> team krijgt 100, het <strong>tweede</strong> 20, daarna niks. Na twee claims verdwijnt het bankje.</li>
+      <li>Je ziet <strong>niet</strong> of een ander team er al geweest is. Dat merk je pas als je er bent. Een team dat al onderweg is, houdt zijn bankje, ook als het intussen verdwenen is.</li>
+      <li>Elke keer als er 3 bankjes verdwenen zijn, komen er 3 nieuwe bij.</li>
+      <li>Op minuut 25 en 55 verschijnt een <strong>gouden bankje</strong> van 300 punten. Alleen het eerste team scoort.</li>
+    </ul>
+  </div>
+  <div class="card rules">
+    <h3>↩️ Annuleren</h3>
+    <p>Kom je er niet bij of wil je toch een ander bankje? Annuleer en kies zelf hoe je betaalt: <strong>2 minuten wachten</strong> voordat je een nieuw bankje mag kiezen, of <strong>40 punten</strong> en direct verder.</p>
+  </div>
+  <div class="card rules">
+    <h3>🛒 Winkel</h3>
+    <p>In de winkel koop je powerups met je punten. Ze werken direct. Punten uitgeven is een gok: je hebt er minder, maar kunt er meer mee verdienen.</p>
+    <ul class="iconlist">
+      <li><b>📡 Radar</b> 30 seconden de exacte plek van je bankje op de kaart.</li>
+      <li><b>🧲 Magneet</b> claimen vanaf 50 meter, voor je huidige of volgende bankje.</li>
+      <li><b>🚀 Turbo</b> je volgende claim levert dubbele punten op.</li>
+      <li><b>🛡️ Schild</b> blokkeert de eerstvolgende sabotage, 10 minuten geldig.</li>
+      <li><b>🔍 Verkenner</b> zie hoe vaak jullie bankje al geclaimd is.</li>
+      <li><b>👣 Spoorzoeker</b> zie 2 minuten welke zone een ander team zoekt.</li>
+      <li><b>🌫️ Mist</b> een ander team ziet 3 minuten geen afstand meer.</li>
+      <li><b>🌀 Kompasstoring</b> het kompas van een ander team draait 2 minuten alle kanten op.</li>
+      <li><b>🧊 Bevriezing</b> een ander team kan 3 minuten niet claimen.</li>
+    </ul>
+    <p class="small">Een team kan maximaal één keer per 10 minuten gesaboteerd worden, en ziet altijd wie het was.</p>
+  </div>
+  <div class="card rules">
+    <h3>🗺️ Speelveld</h3>
+    <p>Centrum, Stratum, Rozenknopje en De Laak. Alles buiten het speelveld is grijs op de kaart; daar komen geen bankjes.</p>
+  </div>
+  <div class="card rules">
+    <h3>💡 Tips</h3>
+    <ul>
+      <li>Gebruik Chrome en zet <strong>nauwkeurige locatie</strong> aan. GPS kan tussen hoge gebouwen een paar meter afwijken: loop even rond het bankje als het niet meteen lukt.</li>
+      <li>Wijst het kompas raar? Draai je telefoon een paar keer in een liggende 8.</li>
+      <li>Laad je telefoon vooraf op en neem een powerbank mee.</li>
+      <li>Verkeersregels gaan altijd voor. Geen punt is een ongeluk waard.</li>
+    </ul>
+  </div>
+  <button class="primary" data-go="start">Begrepen</button>
 </section>
 
 <!-- LOBBY -->
@@ -199,14 +284,14 @@
   </div>
   <div style="position:relative; flex:1; display:flex;">
     <div id="map"></div>
-    <div class="hint-bar" id="hintBar">Tik op een zone om een punt te kiezen</div>
+    <div class="hint-bar" id="hintBar">Tik op een zone om een bankje te kiezen</div>
     <div class="sheet" id="sheet">
       <h2 id="sheetTitle">Zone</h2>
       <div class="meta" style="justify-content:flex-start">
         <span class="tag" id="sheetValue"></span>
         <span class="tag" id="sheetDist"></span>
       </div>
-      <div class="small">Het punt ligt ergens binnen de cirkel. Na het kiezen zie je alleen nog richting en afstand.</div>
+      <div class="small">Het bankje staat ergens binnen de zone. Na het kiezen zie je alleen nog richting en afstand.</div>
       <div class="row">
         <button id="btnSheetClose">Terug</button>
         <button id="btnChoose" class="primary">Kies dit punt</button>
@@ -270,7 +355,7 @@
 <div class="overlay" id="ovShop">
   <div class="modal">
     <h2>Winkel</h2>
-    <p>Je hebt <strong id="shopScore">0</strong> punten. Powerups werken direct.</p>
+    <p><strong id="shopScore">0</strong> punten · werkt direct</p>
     <div class="list" id="shopList"></div>
     <button class="danger" id="btnShopClose">Sluiten</button>
   </div>
@@ -326,8 +411,11 @@ const CONFIG = {
   minPoints: 6,             // ...maar minstens zoveel
   respawnEvery: 3,          // na elke 3 verdwenen punten...
   respawnCount: 3,          // ...komen er 3 nieuwe bij
-  zoneRadius: 150,          // straal van de zone-cirkel (m)
-  claimRadius: 20,          // binnen deze afstand claim je automatisch (m)
+  zoneRadius: 250,          // straal van de zone-cirkel (m)
+  claimRadius: 10,          // binnen deze afstand van het bankje claim je automatisch (m)
+  pointValue: 100,          // elk bankje is evenveel waard
+  goldValue: 300,           // gouden bankje
+  mapMaxZoom: 16,           // verder inzoomen kan niet (anders zie je de bankjes op de kaart)
   claimsPerPoint: 2,        // een punt verdwijnt na 2 claims
   payout: [1, 0.2],         // 1e claim 100%, 2e claim 20%, daarna niks
   cancelTimeMin: 2,         // annuleren: wachttijd in minuten...
@@ -335,64 +423,46 @@ const CONFIG = {
   goldAtMin: [25, 55],      // momenten waarop een gouden punt verschijnt
   minDistFromPlayer: 250,   // nieuw punt niet vlak naast een team (m)
   minDistBetweenPoints: 200, // punten niet te dicht op elkaar (m)
-  southLimit: 51.415,       // alles ten zuiden van deze breedtegraad valt buiten het speelveld
   sabotageCooldownMin: 10   // een team kan maximaal 1x per 10 min gesaboteerd worden
 };
 
 const TYPES = {
-  bankje:    { name: 'Bankje',        value: 60,  color: '#3b82f6' },
-  kunstwerk: { name: 'Kunstwerk',     value: 100, color: '#a855f7' },
-  iconisch:  { name: 'Iconisch punt', value: 150, color: '#f97316' },
-  goud:      { name: 'Gouden punt',   value: 300, color: '#eab308' }
+  bankje: { name: 'Bankje',        color: '#3b82f6' },
+  goud:   { name: 'Gouden bankje', color: '#eab308' }
 };
 
 /* Winkel. kind: self = voor jezelf, target = op je huidige punt, team = tegen een ander team */
 const SHOP = [
-  { id: 'radar',   kind: 'self', name: 'Radar',   price: 40, desc: '30 seconden de exacte plek van je punt op de kaart.', needsTarget: true },
-  { id: 'magneet', kind: 'self', name: 'Magneet', price: 40, desc: 'Claimstraal 50 m voor je huidige of volgende punt.' },
-  { id: 'turbo',   kind: 'self', name: 'Turbo',   price: 60, desc: 'Je huidige of volgende claim telt dubbel.' },
-  { id: 'schild',  kind: 'self', name: 'Schild',  price: 50, desc: 'Blokkeert de volgende sabotage. 10 minuten geldig.' },
-  { id: 'verkenner',   kind: 'self', name: 'Verkenner',   price: 20, desc: 'Zie hoe vaak je huidige punt al geclaimd is.', needsTarget: true },
-  { id: 'spoorzoeker', kind: 'team', name: 'Spoorzoeker', price: 30, desc: 'Zie 2 minuten welke zone een ander team gekozen heeft.', spy: true },
-  { id: 'mist',          kind: 'team', name: 'Mist',          price: 40, desc: 'Een ander team ziet 3 minuten geen afstand.', mins: 3 },
-  { id: 'kompasstoring', kind: 'team', name: 'Kompasstoring', price: 50, desc: 'Het kompas van een ander team draait 2 minuten willekeurig.', mins: 2 },
-  { id: 'bevriezing',    kind: 'team', name: 'Bevriezing',    price: 70, desc: 'Een ander team kan 3 minuten niet claimen.', mins: 3 }
+  { id: 'radar',     kind: 'self', icon: '📡', name: 'Radar',     price: 40, short: '30 s exacte plek',    desc: '30 seconden de exacte plek van je bankje op de kaart.', needsTarget: true },
+  { id: 'magneet',   kind: 'self', icon: '🧲', name: 'Magneet',   price: 40, short: 'Claim op 50\u00a0m',     desc: 'Claimstraal 50 m voor je huidige of volgende bankje.' },
+  { id: 'turbo',     kind: 'self', icon: '🚀', name: 'Turbo',     price: 60, short: 'Volgende claim\u00a0×2',   desc: 'Je huidige of volgende claim telt dubbel.' },
+  { id: 'schild',    kind: 'self', icon: '🛡️', name: 'Schild',    price: 50, short: 'Blokkeert sabotage',  desc: 'Blokkeert de volgende sabotage. 10 minuten geldig.' },
+  { id: 'verkenner', kind: 'self', icon: '🔍', name: 'Verkenner', price: 20, short: 'Al geclaimd?',        desc: 'Zie hoe vaak je huidige bankje al geclaimd is.', needsTarget: true },
+  { id: 'spoorzoeker',   kind: 'team', icon: '👣', name: 'Spoorzoeker',   price: 30, short: 'Zie hun zone',        desc: 'Zie 2 minuten welke zone een ander team gekozen heeft.', spy: true },
+  { id: 'mist',          kind: 'team', icon: '🌫️', name: 'Mist',          price: 40, short: '3 min geen afstand',  desc: 'Een ander team ziet 3 minuten geen afstand.', mins: 3 },
+  { id: 'kompasstoring', kind: 'team', icon: '🌀', name: 'Kompasstoring', price: 50, short: '2 min kompas kwijt',  desc: 'Het kompas van een ander team draait 2 minuten willekeurig.', mins: 2 },
+  { id: 'bevriezing',    kind: 'team', icon: '🧊', name: 'Bevriezing',    price: 70, short: '3 min niet claimen',  desc: 'Een ander team kan 3 minuten niet claimen.', mins: 3 }
 ];
 const MAGNET_RADIUS = 50, RADAR_SECONDS = 30, SPY_SECONDS = 120, SHIELD_MIN = 10;
 const EFFECT_TEXT = { mist: 'Mist', kompasstoring: 'Kompasstoring', bevriezing: 'Bevriezing' };
 
 /* =========================================================
-   SPEELVELD EINDHOVEN — vooraf ingeladen, zodat de app direct start
-   Grenzen: CBS Wijk- en Buurtkaart 2023 (via PDOK), licht vereenvoudigd.
-   Stadsdeel Centrum, stadsdeel Stratum (Oud-Stratum, Kortonjo, Putten),
-   wijk Rozenknopje en wijk De Laak.
+   SPEELVELD — Centrum, Stratum (tot 51.415 N), Rozenknopje en De Laak, samengevoegd tot één gebied.
+   Bron grenzen: CBS Wijk- en Buurtkaart 2023 (PDOK), vereenvoudigd.
    ========================================================= */
-const SPEELVELD = [{"name":"Centrum","ring":[[51.44646,5.50103],[51.44429,5.50284],[51.44393,5.49752],[51.44323,5.49182],[51.44218,5.48461],[51.4406,5.48469],[51.44044,5.48487],[51.44029,5.48572],[51.43988,5.48649],[51.43961,5.4867],[51.4393,5.48681],[51.43635,5.48458],[51.43606,5.48516],[51.43588,5.48547],[51.43533,5.48596],[51.43493,5.48608],[51.43353,5.48595],[51.43251,5.4856],[51.43233,5.4853],[51.43229,5.48496],[51.43221,5.48396],[51.43236,5.48357],[51.4343,5.48076],[51.43325,5.4794],[51.43278,5.47933],[51.43266,5.4792],[51.43258,5.47884],[51.43246,5.47859],[51.43225,5.47847],[51.43063,5.47933],[51.42928,5.47858],[51.42974,5.4783],[51.43093,5.47812],[51.43274,5.47596],[51.43381,5.47443],[51.43552,5.47126],[51.43731,5.46874],[51.43783,5.46866],[51.43886,5.46905],[51.44093,5.46887],[51.44111,5.46899],[51.44126,5.46911],[51.44313,5.47155],[51.44354,5.47286],[51.44364,5.47282],[51.4445,5.47196],[51.44537,5.47498],[51.44528,5.47671],[51.44527,5.4769],[51.4463,5.47698],[51.44639,5.48038],[51.44774,5.48083],[51.45137,5.48368],[51.45288,5.48442],[51.45247,5.49213],[51.45231,5.49327],[51.45185,5.49503],[51.45147,5.49597],[51.45112,5.49659],[51.4504,5.49759],[51.44789,5.49984],[51.44732,5.5007],[51.44723,5.50078],[51.44703,5.50094],[51.44668,5.50097],[51.44646,5.50103]]},{"name":"Oud-Stratum","ring":[[51.43258,5.50324],[51.4299,5.50227],[51.42949,5.50199],[51.42912,5.50171],[51.42839,5.50088],[51.42771,5.4998],[51.42543,5.49537],[51.42417,5.49279],[51.42381,5.49152],[51.42371,5.49092],[51.42365,5.49029],[51.42367,5.48876],[51.42463,5.47719],[51.425,5.47727],[51.42508,5.4772],[51.42541,5.47599],[51.42584,5.47552],[51.42645,5.47568],[51.42672,5.47546],[51.42692,5.47549],[51.42748,5.47602],[51.42925,5.47855],[51.43037,5.4793],[51.43063,5.47933],[51.4309,5.47925],[51.43225,5.47847],[51.43246,5.47859],[51.43258,5.47884],[51.43266,5.4792],[51.43278,5.47933],[51.43325,5.4794],[51.4343,5.48076],[51.43236,5.48357],[51.43221,5.48396],[51.43229,5.48496],[51.43233,5.4853],[51.43251,5.4856],[51.43353,5.48595],[51.43493,5.48608],[51.43533,5.48596],[51.43588,5.48547],[51.43606,5.48516],[51.43635,5.48458],[51.43746,5.48542],[51.43767,5.48559],[51.43688,5.49034],[51.43491,5.50405],[51.43258,5.50324]]},{"name":"Kortonjo","ring":[[51.42367,5.48876],[51.42365,5.49029],[51.42371,5.49092],[51.42417,5.49279],[51.42145,5.49495],[51.41609,5.49733],[51.41576,5.49768],[51.41446,5.49842],[51.40746,5.50145],[51.40556,5.50246],[51.40387,5.50245],[51.40011,5.50464],[51.40005,5.50426],[51.40152,5.50362],[51.40311,5.50154],[51.40386,5.49985],[51.40396,5.49935],[51.40427,5.49782],[51.40441,5.49377],[51.40464,5.49109],[51.40445,5.48992],[51.40471,5.48905],[51.40459,5.48107],[51.40493,5.4778],[51.40488,5.4771],[51.40631,5.47656],[51.40661,5.47627],[51.40726,5.47567],[51.40794,5.4762],[51.40866,5.47528],[51.40879,5.4752],[51.4102,5.47572],[51.41038,5.476],[51.41038,5.4762],[51.41025,5.47639],[51.41017,5.47675],[51.4102,5.47692],[51.41039,5.47691],[51.41158,5.47652],[51.41189,5.47601],[51.41268,5.47536],[51.41322,5.47535],[51.41336,5.4755],[51.41357,5.47601],[51.41422,5.47579],[51.4143,5.47548],[51.41445,5.47511],[51.4151,5.47474],[51.41539,5.47481],[51.41568,5.47533],[51.41561,5.47585],[51.41573,5.47603],[51.41623,5.47631],[51.41678,5.47701],[51.41725,5.47721],[51.41779,5.47736],[51.41798,5.4776],[51.41836,5.47886],[51.41856,5.47951],[51.41854,5.48017],[51.41872,5.48055],[51.41884,5.48081],[51.41907,5.48097],[51.41952,5.48056],[51.41968,5.48051],[51.42062,5.48108],[51.42079,5.48106],[51.42198,5.48022],[51.42223,5.47951],[51.42222,5.47798],[51.42361,5.47768],[51.4243,5.47717],[51.42463,5.47719],[51.42367,5.48876]]},{"name":"Putten","ring":[[51.43218,5.53209],[51.43199,5.53203],[51.432,5.5319],[51.43201,5.53181],[51.42895,5.53124],[51.42829,5.53184],[51.42803,5.53178],[51.42799,5.53118],[51.42742,5.53096],[51.42721,5.53065],[51.42799,5.5252],[51.4279,5.52518],[51.42785,5.52517],[51.4047,5.52581],[51.40449,5.52439],[51.4047,5.52241],[51.40471,5.51343],[51.40458,5.50907],[51.40453,5.50761],[51.40391,5.50568],[51.40348,5.50524],[51.40342,5.50518],[51.40104,5.50464],[51.40103,5.50464],[51.40068,5.50473],[51.40015,5.50487],[51.40011,5.50464],[51.40387,5.50245],[51.40556,5.50246],[51.40746,5.50145],[51.41446,5.49842],[51.41576,5.49768],[51.41609,5.49733],[51.42119,5.49512],[51.42417,5.49279],[51.42771,5.4998],[51.42874,5.50134],[51.4299,5.50227],[51.43491,5.50405],[51.43422,5.51005],[51.43218,5.53209]]},{"name":"De Laak","ring":[[51.43578,5.50439],[51.43491,5.50405],[51.43688,5.49034],[51.43767,5.48559],[51.4393,5.48681],[51.43961,5.4867],[51.43988,5.48649],[51.44029,5.48572],[51.44044,5.48487],[51.4406,5.48469],[51.44218,5.48461],[51.44323,5.49182],[51.44393,5.49752],[51.44429,5.50284],[51.44262,5.50375],[51.43886,5.50492],[51.43711,5.50484],[51.43578,5.50439]]},{"name":"Rozenknopje","ring":[[51.4334,5.4751],[51.43093,5.47812],[51.42974,5.4783],[51.42928,5.47858],[51.42748,5.47602],[51.42692,5.47549],[51.42672,5.47546],[51.42645,5.47568],[51.42584,5.47552],[51.42541,5.47599],[51.42508,5.4772],[51.425,5.47727],[51.42463,5.47719],[51.42507,5.47342],[51.4258,5.46982],[51.42832,5.46133],[51.4307,5.45597],[51.4318,5.45441],[51.43211,5.45495],[51.43261,5.45604],[51.43235,5.45668],[51.43374,5.46096],[51.43448,5.46247],[51.43471,5.46326],[51.43458,5.4636],[51.43521,5.46412],[51.4337,5.46654],[51.43338,5.46674],[51.43391,5.4681],[51.43428,5.46879],[51.43464,5.46944],[51.43506,5.47064],[51.43538,5.47156],[51.4334,5.4751]]}];
+const SPEELVELD = [[51.43181,5.45434],[51.43067,5.45593],[51.42829,5.46129],[51.42576,5.4698],[51.42503,5.4734],[51.42459,5.47711],[51.42429,5.4771],[51.4236,5.47761],[51.42219,5.47792],[51.42218,5.47949],[51.42195,5.48016],[51.42077,5.48099],[51.42062,5.48101],[51.41968,5.48044],[51.41907,5.48089],[51.41887,5.48075],[51.41859,5.48015],[51.4186,5.47949],[51.418,5.47755],[51.4178,5.4773],[51.4168,5.47694],[51.41625,5.47625],[51.41576,5.47597],[51.41566,5.47582],[51.41572,5.47531],[51.41542,5.47477],[51.415,5.47472],[51.415,5.5256],[51.42793,5.52526],[51.42718,5.5307],[51.42741,5.53103],[51.42793,5.53123],[51.42802,5.53185],[51.4283,5.53191],[51.42834,5.53176],[51.42896,5.53131],[51.43047,5.53167],[51.43053,5.53152],[51.43196,5.53187],[51.43196,5.53209],[51.43218,5.53216],[51.43427,5.51006],[51.43495,5.50414],[51.43711,5.50492],[51.43886,5.50499],[51.44004,5.5047],[51.44328,5.50356],[51.44448,5.50278],[51.44647,5.5011],[51.44706,5.50101],[51.44791,5.4999],[51.45042,5.49765],[51.45151,5.49601],[51.45189,5.49506],[51.45235,5.49329],[51.4528,5.48776],[51.45293,5.48442],[51.45139,5.48361],[51.44776,5.48076],[51.44643,5.48031],[51.44634,5.47696],[51.44532,5.47683],[51.44541,5.47496],[51.44454,5.47192],[51.44357,5.47278],[51.44317,5.4715],[51.44113,5.46892],[51.44064,5.46875],[51.43869,5.46896],[51.43784,5.46859],[51.43746,5.4686],[51.4371,5.46884],[51.43539,5.47142],[51.43468,5.46941],[51.43395,5.46806],[51.43345,5.46678],[51.43374,5.46659],[51.43525,5.4641],[51.43465,5.46357],[51.43476,5.46325],[51.43452,5.46244],[51.43378,5.46092],[51.43241,5.45668],[51.43265,5.45601],[51.43181,5.45434]];
 
-/* Punten uit OpenStreetMap (okt 2026), binnen het speelveld.
-   Formaat per punt: noord,oost,type[,naam]  — noord/oost in 0,00001 graden vanaf 51.4 N / 5.45 O.
-   Type: b0 bankje, b1 picknicktafel, k0 kunstwerk, k1 fontein, k2 monument, i0 iconisch punt. */
-const PUNTEN = "1644,2960,k0,Watertoren;2157,4755,i0,Don Boscokerk;2772,2701,k0,zonder titel;3331,2341,k0,Olifant (de wijze);3812,2183,k0,Gekooide Vrijheid;3947,2845,k0,Jan van Hooff;3699,2865,k2,Synagoge 1866-1959;4237,2750,k0,Het Verkeer;3988,2353,k0,Gerard Philips;4412,2435,k0,Rencontre;4284,2752,k0,Het Geluid;2671,3140,k0,Radiomonument;2771,3269,k0,Septum (in gesprek met de vorigen);2774,3194,k0,Kleine Huiskamer;2754,3305,k0,Vleugel;2714,3340,k0,Kruislings Gelaagd;2718,3165,k0,Zuil;2582,3267,k0,Onderweg;2607,3346,k0,Tandem;2629,3346,k0,Bron;2621,3236,k0,Vlaggen;2636,3103,k0,Keesje het diakenhuismannetje;2637,3130,k0,Ontmoeting;2581,3135,k0,Parkbeeld;2475,3044,k0,Het Zonnebeeld;2692,3278,k0,Ring;2586,3029,k0,Zwemster;2534,3127,k0,Dubbel Kwadraat;2518,2983,k0;2750,3288,k0,Handelsreiziger;2923,3684,k0,Abraham Art;3530,3440,k0,Have a nice day;3535,3139,k0,Accolade;3505,3168,k0,Boilerput (Energie);3589,3081,k0,Casetteplafond;3606,3255,k2,De Bekoring de Wijsheid en het Gevaar;3832,3346,k0,Jonas en de walvis;3854,3381,k0,Iets Hogers;3922,3156,k0,Twee deuromlijstingen;3974,3109,k0,Twee deuromlijstingen;4184,3004,k0,Dr. A.F. Philips;3649,3009,k0,Wereldkaart;3627,3034,k0,Draadsculptuur;3782,3612,k0,Gasvlam;4528,3061,k0,Flying Pins;4704,3460,k0,KOE;4292,3437,k0,Silly Walk Eindhoven;4662,3126,k0,Mens Agitat Molem;4597,3421,k0,SOH19;4720,3502,k0,TU/e logo;4695,3544,k0,Wording;4826,3539,k0,Vliegende Amazone;4857,3646,k0,Agressie;4679,3651,k0,Vliegend;4646,3571,k0,Vloerreliëfs;4638,3790,k0,Paardenhoofden;4727,4109,k0,Leap into the Deep;4735,3603,k0,De Technische Student;4879,4335,k0,Het Blauw van de Vlinder;4822,4349,k0,Machine I;2734,6035,i0,Pius X Kerk;4942,3354,k0,Woenselse watermolen;4923,3726,k0,Turbulentie;5069,4478,k0,Metaalplastiek;1626,4748,k1,Fontein Floraplein;2096,4383,i0,Kerk van de Aartsengel Michaël;2687,1799,i0,Adventskerk;3326,1929,i0,De Vergeten Tuin;3811,1959,i0,Fatih moskee;4164,2773,k0,Twee Figuren;3686,2925,i0,Sint-Catharinakerk;2554,3063,k0,Tempeltje met Stilleven;3550,2978,k2,Bevrijdingsmonument;2999,3795,i0,Sint-Joriskerk;4390,5207,i0,Ontmoetingskerk;2365,7316,i0,Mariakapel;1668,5258,i0,Evangelische Gemeente De Lichtstad;3972,2476,i0,Witte Dame;4086,2479,i0,Lichttoren;4079,2599,i0,De Blob;3515,3047,i0,Stadhuis;3446,3183,i0,Van Abbemuseum;4172,3311,i0,Effenaar;3867,2968,i0,Muziekgebouw;3926,2532,i0,Philips Museum;3818,3400,i0,Augustijnenkerk;3802,2112,i0,Wilhelminaplein;874,2769,b0;873,2794,b0;1259,2719,b0;1243,2767,b0;1168,2749,b0;1275,2636,b0;1318,2701,b0;1307,2785,b0;1204,2816,b0;1243,2825,b0;1320,2647,b0;1808,2854,b0;1785,2799,b0;1736,2867,b0;1735,2802,b0;942,4063,b0;945,4117,b0;667,4018,b0;882,3819,b0;807,4454,b0;907,4622,b0;676,4825,b0;706,4362,b0;682,4279,b0;725,4352,b0;844,4490,b0;860,4527,b0;899,4580,b0;875,4760,b0;789,4680,b0;816,4763,b0;968,4564,b0;652,4842,b0;961,4464,b0;737,4772,b0;695,4878,b0;765,4858,b0;1295,3110,b0;1502,4150,b0;1565,4161,b0;1009,4105,b0;1010,4049,b0;1356,4091,b0;1393,3974,b0;1238,4069,b0;1356,4040,b0;1683,3295,b0;2279,2907,b0;2217,3085,b0;1813,2892,b0;1718,3013,b0;1786,3139,b0;1808,3133,b0;1802,3070,b0;1798,3085,b0;1727,3085,b0;2238,3106,b0;1967,3077,b0;1692,3131,b0;1956,3093,b0;1687,3185,b0;2065,3138,b0;1897,3162,b0;1752,3781,b0;1719,3862,b0;1711,3921,b0;1703,4099,b0;1695,4065,b0;1959,3926,b0;1976,3928,k0;1770,3682,b0;2239,3981,b0;1989,3855,b0;2008,3996,b0;2013,3929,b0;2054,3910,b0;2066,3806,b0;1072,4663,b0;1198,4627,b0;981,4696,b0;1595,4820,b0;1014,4440,b0;1289,4201,b0;1019,4380,b0;1016,4534,b0;1394,4476,b0;1571,5378,b0;1624,5354,k0;1380,5279,b0;1612,4920,b0;1524,5028,b0;1464,5149,b0;1402,5410,b0;1253,5098,b0;1233,5423,b0;1642,4663,b0;2132,4709,b0;2281,4533,b0;1944,4332,b0;2117,4749,b0;1976,4718,b0;2002,4583,b0;1897,4694,b0;2270,4812,b0;2155,4668,b0;2179,4707,b0;1850,4530,b0;1859,4518,b0;2268,5003,b0;1916,5500,b0;1904,5474,b0;1994,5227,b0;1975,5157,k0;1977,5155,b0;2060,4891,b0;2098,5043,b0;2053,5053,b0;1658,5052,b0;1854,5403,b0;2204,4898,b0;1987,5500,k0;1975,5459,b1;1988,5020,b0;1958,4926,b0;2922,1017,b0;3180,511,b0;3282,891,b0;3182,895,b0;3204,847,b0;3151,818,b0;3129,913,b0;3149,831,b0;2986,849,b0;3323,1109,b0;3454,1363,b0;3380,1216,b1;3409,1236,b0;3421,1307,k0;3324,1031,b0;2970,1337,b1;2988,1537,b0;3013,1038,b0;3041,924,b0;2954,1010,b0;2624,2224,b0;2790,1682,b0;2837,1870,b0;2543,2762,b0;2554,2777,b0;2814,2800,b0;2701,2671,b0;2689,2724,b0;2861,2737,b0;2722,2561,b0;2560,2309,b0;2535,2440,b0;2533,2586,b0;2417,2868,b0;2396,2788,b0;2494,2670,b0;2663,2312,b0;2693,2399,b0;2748,2633,b0;2808,2640,b0;2822,2238,b0;3357,2145,b0;3291,1803,b0;3185,1719,b0;2982,1714,k0;2998,2011,b0;3340,1773,b0;3179,2488,k0;3175,2537,b0;3229,2881,k0;3255,2810,k0;3066,2785,b0;2999,2876,b0;3059,2851,k0;3269,2856,b0;3344,2567,b0;3350,2617,b0;3550,2352,b0;3561,2271,b0;3566,2571,b0;3275,2732,b0;3197,2835,b0;3218,2344,b0;3300,2337,b0;3308,2367,b0;3320,2344,b0;4070,2181,b0;4062,2186,b0;4059,2157,b0;3976,2179,b0;3804,2152,k1;4122,2598,k1;3729,2571,k0;3778,2660,k0;4143,2785,k1;4099,2543,k0;3867,2401,b0;4084,2810,b0;4068,2689,b0;4032,2701,b0;4005,2842,b0;3993,2713,b0;3953,2727,b0;3869,2634,b0;4042,2455,b0;4035,2425,b0;3637,2296,b0;3632,2291,b0;4414,2429,b0;4415,2440,b0;4346,2839,b0;4386,2577,b0;4350,2865,b0;2918,2913,b0;2609,3396,b0;2578,3265,b0;2530,3156,b0;2935,3488,b0;2588,3048,b0;2564,3163,b0;2555,3399,b0;2590,3010,b0;2635,3255,b0;2612,3119,b0;2623,3371,b0;2474,3256,b0;2703,3382,b0;2460,3118,b0;2507,3002,b0;2735,3339,b0;2678,3123,b0;2727,3180,b0;2645,3157,b0;2679,3228,b0;2704,3319,b0;2743,3211,b0;2527,3310,b0;2445,3222,b0;2706,3114,b0;2931,3503,k0;2356,2997,b0;2932,3491,b0;2593,3313,b0;2395,3179,b0;2333,3996,b0;2791,3736,b0;2795,3955,b0;2798,3712,b0;2374,3588,b0;2448,4050,b0;2464,4070,b0;2305,4154,b0;2286,4150,b0;2902,3618,b0;2928,3901,b0;2984,2916,b0;3473,3106,b0;3227,2912,b0;3434,3114,k0;3195,2949,k0;3267,2944,b0;3274,2949,b0;3471,3102,b0;3060,2911,b0;3341,2987,b0;3358,3053,b0;3484,3040,k0;3431,3171,k0;3547,3161,b0;3424,3173,b0;3418,3168,b0;3580,3042,b0;3575,3029,b0;3499,3149,b0;3458,3395,b0;2998,3528,b0;3422,3998,b0;3239,3826,b0;3252,3808,b0;3473,3589,k0;3455,3561,k0;3057,4073,b0;2964,3778,k0;2989,3685,k0;3431,4100,b0;3505,4146,b0;3504,4153,b0;3422,3768,b0;3370,3865,b0;3349,3903,b0;3289,4060,b0;2929,4353,b0;2934,4360,b0;2927,4337,k0;2376,4819,b0;2539,4841,b1;2417,4395,b0;2454,4942,b0;2671,5452,b0;2566,5279,b0;2333,4900,b0;2356,4857,b0;2693,5397,b0;2823,5297,b0;2869,5474,b0;2820,5149,k0;2293,5383,b0;2577,5382,b0;2562,5432,k0;2546,5439,b1;2855,5077,b0;2392,5205,b0;2474,5054,b0;2625,5474,b0;2462,5489,b0;2510,5412,k0;2781,4944,b0;3134,4772,k1;3207,4599,b0;3548,4679,b0;3538,4653,b0;3525,4663,b0;3522,4761,b0;3250,4207,b0;3224,4569,b0;3205,5019,b0;3167,4944,b0;3147,5070,b0;3122,5222,b0;3155,5225,b0;3241,5032,k0;3119,5220,k0;3164,5154,b0;3213,4891,b0;2979,5192,b0;3766,3135,k0;4183,3368,b0;4188,3382,b0;4173,3361,b0;3711,2964,k0;3844,3273,k0;4028,3076,k0;3726,2961,b0;3759,3029,b0;4017,2909,b0;4205,3035,b0;4062,2996,b0;3853,2930,b0;3761,3155,b0;3738,3170,b0;3681,2957,b0;3665,3266,b0;3662,2886,b0;4156,3445,b0;3738,3796,b0;3700,3957,k0;3708,3839,b0;3685,4121,b0;3699,3899,b0;3917,3588,b0;4173,3905,b0;4158,3793,b0;3843,3646,b0;3839,3754,b0;3798,3832,b0;3783,3833,b0;3778,4121,b0;3610,3666,b0;3603,3631,b0;4432,3073,b0;4398,2988,b0;4600,3260,b0;4671,3230,b0;4732,3222,b0;4902,3366,b0;4652,3215,k0;4659,3424,k0;4293,3062,b0;4344,3138,b0;4392,3370,k0;4757,3752,k0;4860,3692,b0;4893,3705,b0;4735,3646,b0;4756,3558,b0;4812,3543,b0;4828,3841,k0;4541,4081,b0;4523,3842,b0;4663,4085,b1;4694,4171,b1;4700,4052,b1;4683,3968,b1;4527,3895,b0;4652,4074,b0;4721,4060,b0;4733,4116,b0;3823,4729,b0;3845,4763,b0;4017,4486,b0;3630,4509,b0;4177,4580,b0;4082,4291,b0;3895,4828,b0;4176,4648,b0;4168,4652,b0;4168,4726,b0;4220,4842,b0;4245,4829,b0;4185,4423,b0;4084,4206,b0;3866,4648,b0;3828,4254,b0;3734,4274,b0;4059,5175,b0;3914,4902,b0;3957,4969,b0;4009,5052,b0;3643,5444,k0;3868,5215,b0;4233,5109,b0;4249,4877,b0;4004,5273,b0;3979,5223,b0;3957,5200,b0;3947,5070,b0;3829,4927,b0;3712,5073,b0;3689,5181,b0;3689,5185,b0;4564,4304,b0;4667,4361,b0;4328,4720,b0;4405,5123,b0;4340,5182,k0;772,6679,b1;780,6997,b0;1612,6005,b0;1434,5900,b0;1367,5952,b0;1558,5545,b0;1695,5883,b0;2018,5781,b0;1997,5773,b0;1980,5789,b0;2246,5508,b0;1780,5920,b0;1812,6370,b0;2019,6735,b0;1806,6802,b0;1898,6254,b0;1919,6257,b0;1724,6200,b0;2315,6026,b0;2846,5645,b0;2842,5741,b0;2800,5851,b0;2920,6058,b0;2546,5716,b0;2615,5593,b0;2297,6090,b0;2712,5899,b0;2762,5884,b0;2790,5902,b0;2470,5573,b0;2817,5690,b0;2296,5903,b0;2554,5730,k0;2370,6253,b0;2701,6252,b0;2500,6702,b0;2400,6358,b0;2795,6704,b0;2513,6737,b0;2320,6455,b0;2526,6753,k0;3019,5538,b0;2948,5879,b0;2975,5826,b0;2943,6039,b0;2368,7309,b0;2402,7073,b0;4925,3529,k0;4943,3529,b0;5022,3771,b0;5130,3915,b1;5062,3922,b0;5145,3668,b0;4978,3754,b0;5108,3609,b0;5129,3793,b0;5151,3668,b0;5163,3758,b0;5001,4399,k0;4915,4450,k0;3568,3059,k1";
+/* Bankjes uit OpenStreetMap (okt 2026), max. één per ±60 m, binnen het speelveld.
+   Formaat: noord,oost in 0,00001 graden vanaf 51.4 N / 5.45 O. */
+const BANKJES = "1808,2854;1785,2799;1736,2867;1735,2802;1502,4150;1565,4161;1683,3295;2279,2907;2217,3085;1813,2892;1718,3013;1786,3139;1808,3133;1802,3070;1798,3085;1727,3085;2238,3106;1967,3077;1692,3131;1956,3093;1687,3185;2065,3138;1897,3162;1752,3781;1719,3862;1711,3921;1703,4099;1695,4065;1959,3926;1770,3682;2239,3981;1989,3855;2008,3996;2013,3929;2054,3910;2066,3806;1595,4820;1571,5378;1612,4920;1524,5028;1642,4663;2132,4709;2281,4533;1944,4332;2117,4749;1976,4718;2002,4583;1897,4694;2270,4812;2155,4668;2179,4707;1850,4530;1859,4518;2268,5003;1916,5500;1904,5474;1994,5227;1977,5155;2060,4891;2098,5043;2053,5053;1658,5052;1854,5403;2204,4898;1988,5020;1958,4926;2922,1017;3180,511;3282,891;3182,895;3204,847;3151,818;3129,913;3149,831;2986,849;3323,1109;3454,1363;3409,1236;3324,1031;2988,1537;3013,1038;3041,924;2954,1010;2624,2224;2790,1682;2837,1870;2543,2762;2554,2777;2814,2800;2701,2671;2689,2724;2861,2737;2722,2561;2560,2309;2535,2440;2533,2586;2417,2868;2396,2788;2494,2670;2663,2312;2693,2399;2748,2633;2808,2640;2822,2238;3357,2145;3291,1803;3185,1719;2998,2011;3340,1773;3175,2537;3066,2785;2999,2876;3269,2856;3344,2567;3350,2617;3550,2352;3561,2271;3566,2571;3275,2732;3197,2835;3218,2344;3300,2337;3308,2367;3320,2344;4070,2181;4062,2186;4059,2157;3976,2179;3867,2401;4084,2810;4068,2689;4032,2701;4005,2842;3993,2713;3953,2727;3869,2634;4042,2455;4035,2425;3637,2296;3632,2291;4414,2429;4415,2440;4346,2839;4386,2577;4350,2865;2918,2913;2609,3396;2578,3265;2530,3156;2935,3488;2588,3048;2564,3163;2555,3399;2590,3010;2635,3255;2612,3119;2623,3371;2474,3256;2703,3382;2460,3118;2507,3002;2735,3339;2678,3123;2727,3180;2645,3157;2679,3228;2704,3319;2743,3211;2527,3310;2445,3222;2706,3114;2356,2997;2932,3491;2593,3313;2395,3179;2333,3996;2791,3736;2795,3955;2798,3712;2374,3588;2448,4050;2464,4070;2305,4154;2286,4150;2902,3618;2928,3901;2984,2916;3473,3106;3227,2912;3267,2944;3274,2949;3471,3102;3060,2911;3341,2987;3358,3053;3547,3161;3424,3173;3418,3168;3580,3042;3575,3029;3499,3149;3458,3395;2998,3528;3422,3998;3239,3826;3252,3808;3057,4073;3431,4100;3505,4146;3504,4153;3422,3768;3370,3865;3349,3903;3289,4060;2929,4353;2934,4360;2376,4819;2417,4395;2454,4942;2671,5452;2566,5279;2333,4900;2356,4857;2693,5397;2823,5297;2869,5474;2293,5383;2577,5382;2855,5077;2392,5205;2474,5054;2625,5474;2462,5489;2781,4944;3207,4599;3548,4679;3538,4653;3525,4663;3522,4761;3250,4207;3224,4569;3205,5019;3167,4944;3147,5070;3122,5222;3155,5225;3164,5154;3213,4891;2979,5192;4183,3368;4188,3382;4173,3361;3726,2961;3759,3029;4017,2909;4205,3035;4062,2996;3853,2930;3761,3155;3738,3170;3681,2957;3665,3266;3662,2886;4156,3445;3738,3796;3708,3839;3685,4121;3699,3899;3917,3588;4173,3905;4158,3793;3843,3646;3839,3754;3798,3832;3783,3833;3778,4121;3610,3666;3603,3631;4432,3073;4398,2988;4600,3260;4671,3230;4732,3222;4902,3366;4293,3062;4344,3138;4860,3692;4893,3705;4735,3646;4756,3558;4812,3543;4541,4081;4523,3842;4527,3895;4652,4074;4721,4060;4733,4116;3823,4729;3845,4763;4017,4486;3630,4509;4177,4580;4082,4291;3895,4828;4176,4648;4168,4652;4168,4726;4220,4842;4245,4829;4185,4423;4084,4206;3866,4648;3828,4254;3734,4274;4059,5175;3914,4902;3957,4969;4009,5052;3868,5215;4233,5109;4249,4877;4004,5273;3979,5223;3957,5200;3947,5070;3829,4927;3712,5073;3689,5181;3689,5185;4564,4304;4667,4361;4328,4720;4405,5123;1612,6005;1558,5545;1695,5883;2018,5781;1997,5773;1980,5789;2246,5508;1780,5920;1812,6370;2019,6735;1806,6802;1898,6254;1919,6257;1724,6200;2315,6026;2846,5645;2842,5741;2800,5851;2920,6058;2546,5716;2615,5593;2297,6090;2712,5899;2762,5884;2790,5902;2470,5573;2817,5690;2296,5903;2370,6253;2701,6252;2500,6702;2400,6358;2795,6704;2513,6737;2320,6455;3019,5538;2948,5879;2975,5826;2943,6039;2368,7309;2402,7073;4943,3529;5022,3771;5062,3922;5145,3668;4978,3754;5108,3609;5129,3793;5151,3668;5163,3758";
 
-const HINT = { b0: 'een bankje', b1: 'een picknicktafel', k0: 'een kunstwerk', k1: 'een fontein', k2: 'een monument', i0: 'een opvallend gebouw of bezienswaardigheid' };
-const TYPE_OF = { b: 'bankje', k: 'kunstwerk', i: 'iconisch' };
-function clipSouth(ring, limit) {      // knip een polygoon af op een breedtegraad
-  const out = [];
-  for (let i = 0; i < ring.length; i++) {
-    const a = ring[i], b = ring[(i + 1) % ring.length], ina = a[0] >= limit, inb = b[0] >= limit;
-    if (ina) out.push(a);
-    if (ina !== inb) { const t = (limit - a[0]) / (b[0] - a[0]); out.push([limit, a[1] + t * (b[1] - a[1])]); }
-  }
-  return out;
-}
-function fieldRings() { return SPEELVELD.map(a => clipSouth(a.ring, CONFIG.southLimit)).filter(r => r.length >= 3); }
+function fieldRings() { return [SPEELVELD]; }
 function builtinCandidates() {
-  return PUNTEN.split(';').map((s, i) => {
-    const [n, o, t, ...rest] = s.split(',');
-    return { id: 'p' + i, lat: 51.4 + n / 1e5, lng: 5.45 + o / 1e5, type: TYPE_OF[t[0]], hint: HINT[t], name: rest.join(' ') };
-  }).filter(c => c.lat >= CONFIG.southLimit);
+  return BANKJES.split(';').map((s, i) => {
+    const [n, o] = s.split(',');
+    return { id: 'b' + i, lat: 51.4 + n / 1e5, lng: 5.45 + o / 1e5 };
+  });
 }
-
 
 /* =========================================================
    GEOMETRIE
@@ -457,7 +527,7 @@ function initFirebase() {
     db = firebase.database();
     db.ref('.info/serverTimeOffset').on('value', s => { timeOffset = s.val() || 0; });
     return true;
-  } catch (e) { $('startErr').textContent = 'Kan geen verbinding maken met de server.'; return false; }
+  } catch (e) { showErr('Kan geen verbinding maken met de server.'); return false; }
 }
 
 function myTeam() { return G && G.teams[ME.id] || {}; }
@@ -470,16 +540,17 @@ function teamCount() { return Math.max(1, Object.keys(G.teams || {}).length); }
 /* =========================================================
    SPEL MAKEN / MEEDOEN
    ========================================================= */
-function teamName() {
-  const n = ($('optTeam').value || '').trim();
+function showErr(m) { $$('.screen.active .err').forEach(e => e.textContent = m); }
+function teamName(inputId) {
+  const n = ($(inputId).value || '').trim();
   lsSet('kj-team', n);
   return n;
 }
 function newId(len, chars) { let s = ''; for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)]; return s; }
 
 async function createGame() {
-  $('startErr').textContent = '';
-  const name = teamName(); if (!name) return $('startErr').textContent = 'Vul eerst een teamnaam in.';
+  showErr('');
+  const name = teamName('hostTeam'); if (!name) return showErr('Vul eerst een teamnaam in.');
   if (!initFirebase()) return;
   primeSensors();
   const duration = Math.max(5, Math.min(240, +$('optDuration').value || 75));
@@ -493,19 +564,19 @@ async function createGame() {
       return enterGame(code);
     }
   }
-  $('startErr').textContent = 'Kon geen spel maken, probeer het opnieuw.';
+  showErr('Kon geen spel maken, probeer het opnieuw.');
 }
 
 async function joinGame() {
-  $('startErr').textContent = '';
-  const name = teamName(); if (!name) return $('startErr').textContent = 'Vul eerst een teamnaam in.';
+  showErr('');
+  const name = teamName('joinTeam'); if (!name) return showErr('Vul eerst een teamnaam in.');
   const code = ($('optCode').value || '').trim().toUpperCase();
-  if (code.length !== 4) return $('startErr').textContent = 'De code heeft 4 tekens.';
+  if (code.length !== 4) return showErr('De code heeft 4 tekens.');
   if (!initFirebase()) return;
   primeSensors();
   const meta = (await db.ref('games/' + code + '/meta').get()).val();
-  if (!meta) return $('startErr').textContent = 'Geen spel gevonden met code ' + code + '.';
-  if (meta.status === 'ended') return $('startErr').textContent = 'Dit spel is al afgelopen.';
+  if (!meta) return showErr('Geen spel gevonden met code ' + code + '.');
+  if (meta.status === 'ended') return showErr('Dit spel is al afgelopen.');
   ME.id = newId(10, 'abcdefghijkmnpqrstuvwxyz23456789'); ME.name = name;
   await db.ref('games/' + code + '/teams/' + ME.id).set({ name, score: 0, joinedAt: now() });
   enterGame(code);
@@ -545,7 +616,7 @@ function leaveGame() {
 let shownScreen = null;
 function onMeta() {
   const m = G.meta;
-  if (!m) { $('startErr').textContent = 'Dit spel bestaat niet meer.'; lsDel('kj-session'); show('start'); return; }
+  if (!m) { showErr('Dit spel bestaat niet meer.'); lsDel('kj-session'); show('start'); return; }
   if (m.status === 'lobby') {
     show('lobby');
     $('lobbyInfo').textContent = m.durationMin + ' minuten · deel deze code met de andere teams';
@@ -588,13 +659,15 @@ function onPoints() {
     if (!LS.seenPoints[id]) {
       LS.seenPoints[id] = 1;
       if (p.type === 'goud' && G.meta && G.meta.status === 'running' && p.createdAt > now() - 120000) {
-        banner('Gouden punt verschenen! ' + p.value + ' punten, maar alleen het eerste team scoort.', 'gold');
+        banner('Gouden bankje verschenen! ' + p.value + ' punten, maar alleen het eerste team scoort.', 'gold');
         if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
       }
     }
   }
   saveLocal();
   drawZones();
+  // na herladen: zodra de punten binnen zijn direct terug naar het kompas
+  if (G.meta && G.meta.status === 'running' && tickTimer && target() && shownScreen !== 'nav') enterNav();
 }
 
 function sortedTeams() { return Object.entries(G.teams || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0)); }
@@ -609,30 +682,20 @@ function pickCandidates(used, n, gold, extraTaken = []) {
   const players = teamPositions(); if (pos) players.push(pos);
   const out = [];
   for (let k = 0; k < n; k++) {
-    const typesOrder = gold ? [['iconisch'], ['kunstwerk'], null] : [null];
     let c = null;
     for (const strict of [true, false]) {
-      for (const types of typesOrder) {
-        const pool = CANDIDATES.filter(x => !used[x.id] && (!types || types.includes(x.type)) &&
-          (!strict || players.every(pl => dist(x, pl) >= CONFIG.minDistFromPlayer)) &&
-          (!strict || existing.concat(out).every(p => dist(x, p) >= CONFIG.minDistBetweenPoints)));
-        if (!pool.length) continue;
-        if (types) { c = pool[Math.floor(Math.random() * pool.length)]; break; }
-        const weight = { bankje: .5, kunstwerk: .35, iconisch: .15 };
-        const avail = [...new Set(pool.map(x => x.type))];
-        let r = Math.random() * avail.reduce((s, t) => s + weight[t], 0), chosen = avail[avail.length - 1];
-        for (const t of avail) { r -= weight[t]; if (r <= 0) { chosen = t; break; } }
-        const sub = pool.filter(x => x.type === chosen);
-        c = sub[Math.floor(Math.random() * sub.length)]; break;
-      }
-      if (c) break;
+      const pool = CANDIDATES.filter(x => !used[x.id] &&
+        (!strict || players.every(pl => dist(x, pl) >= CONFIG.minDistFromPlayer)) &&
+        (!strict || existing.concat(out).every(p => dist(x, p) >= CONFIG.minDistBetweenPoints)));
+      if (pool.length) { c = pool[Math.floor(Math.random() * pool.length)]; break; }
     }
     if (!c) break;
     used[c.id] = true;
-    const type = gold ? 'goud' : c.type;
-    const zone = offset(c, CONFIG.zoneRadius * 0.75 * Math.sqrt(Math.random()), Math.random() * 360);
-    out.push({ cid: c.id, lat: c.lat, lng: c.lng, zoneLat: zone.lat, zoneLng: zone.lng, type, hint: c.hint, name: c.name || '',
-      value: TYPES[type].value, maxClaims: gold ? 1 : CONFIG.claimsPerPoint, claimCount: 0, createdAt: now() });
+    // zone-middelpunt willekeurig verschoven, zodat het midden het bankje niet verraadt
+    const zone = offset(c, CONFIG.zoneRadius * 0.85 * Math.sqrt(Math.random()), Math.random() * 360);
+    out.push({ cid: c.id, lat: c.lat, lng: c.lng, zoneLat: zone.lat, zoneLng: zone.lng, type: gold ? 'goud' : 'bankje',
+      seed: Math.floor(Math.random() * 1e9),
+      value: gold ? CONFIG.goldValue : CONFIG.pointValue, maxClaims: gold ? 1 : CONFIG.claimsPerPoint, claimCount: 0, createdAt: now() });
   }
   return out;
 }
@@ -724,7 +787,7 @@ async function tryClaim() {
     const turbo = !!LS.boosts.turbo;
     const gained = Math.round(p.value * factor * (turbo ? 2 : 1));
     LS.boosts = {}; LS.targetId = null;
-    LS.log.push({ at: now() - G.meta.startedAt, label: p.name || p.hint, gained, rank });
+    LS.log.push({ at: now() - G.meta.startedAt, label: p.type === 'goud' ? 'Gouden bankje' : 'Bankje', gained, rank });
     saveLocal();
     if (gained) await G.ref.child('teams/' + ME.id + '/score').transaction(v => (v || 0) + gained);
     G.ref.child('teams/' + ME.id + '/target').remove();
@@ -733,8 +796,9 @@ async function tryClaim() {
     $('claimTitle').textContent = rank === 1 ? (p.type === 'goud' ? 'Goud! Jullie waren eerst!' : 'Eerste!') : rank === 2 ? 'Tweede!' : 'Te laat…';
     $('claimPoints').textContent = '+' + gained;
     $('claimPoints').style.color = gained ? 'var(--accent)' : 'var(--muted)';
-    $('claimWhat').textContent = (rank > CONFIG.payout.length || (p.type === 'goud' && rank > 1) ? 'Twee andere teams waren jullie voor. ' : '') +
-      'Dit was ' + (p.name || p.hint) + '.' + (turbo && gained ? ' Turbo: dubbele punten!' : '');
+    $('claimWhat').textContent = rank === 1 ? 'Jullie waren als eerste bij dit bankje.' :
+      rank === 2 && p.type !== 'goud' ? 'Er was al één team eerder.' : 'Andere teams waren jullie voor.';
+    if (turbo && gained) $('claimWhat').textContent += ' Turbo: dubbele punten!';
     $('ovClaim').classList.add('show');
   } finally { claiming = false; }
 }
@@ -796,12 +860,34 @@ let map = null, zoneLayer = null, playerMarker = null, selectedId = null;
 
 function initMap() {
   if (map) return;
-  map = L_.map('map', { zoomControl: false });
-  L_.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  map = L_.map('map', { zoomControl: false, maxZoom: CONFIG.mapMaxZoom, minZoom: 12 });
+  L_.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: CONFIG.mapMaxZoom, attribution: '&copy; OpenStreetMap' }).addTo(map);
+  // grijze gloed over alles buiten het speelveld
+  const world = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
+  L_.polygon([world, ...FIELD], { stroke: false, fillColor: '#1e293b', fillOpacity: .45, interactive: false }).addTo(map);
+  const edge = L_.polygon(FIELD, { color: '#0f172a', weight: 2, opacity: .6, fill: false, interactive: false }).addTo(map);
   zoneLayer = L_.layerGroup().addTo(map);
   map.on('click', closeSheet);
-  const field = L_.featureGroup(FIELD.map(r => L_.polygon(r, { color: '#0f172a', weight: 2, fill: false, dashArray: '6 6', interactive: false }))).addTo(map);
-  map.fitBounds(field.getBounds(), { padding: [20, 20] });
+  map.fitBounds(edge.getBounds(), { padding: [10, 10] });
+  map.setMaxBounds(edge.getBounds().pad(0.6));
+}
+
+/* Grillige zonevorm: voor iedereen gelijk (vaste seed per punt), en het bankje ligt er altijd binnen. */
+function seeded(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const zoneCache = {};
+function zonePoly(p) {
+  const key = p.seed + ':' + p.zoneLat;
+  if (zoneCache[key]) return zoneCache[key];
+  const rnd = seeded(p.seed || 1), c = { lat: p.zoneLat, lng: p.zoneLng };
+  const h = [[2, .16 + rnd() * .1, rnd() * 6.3], [3, .08 + rnd() * .1, rnd() * 6.3], [5, .04 + rnd() * .06, rnd() * 6.3]];
+  const shape = scale => Array.from({ length: 48 }, (_, i) => {
+    const th = i / 48 * 2 * Math.PI;
+    const f = 1 + h.reduce((s, [k, a, ph]) => s + a * Math.sin(k * th + ph), 0);
+    const q = offset(c, CONFIG.zoneRadius * f * scale, th * 180 / Math.PI); return [q.lat, q.lng];
+  });
+  let scale = 1, poly = shape(scale);
+  while (!inPoly(p, poly) && scale < 2) { scale += .1; poly = shape(scale); }
+  return zoneCache[key] = poly;
 }
 
 function visiblePoints() {
@@ -812,9 +898,9 @@ function drawZones() {
   if (!map || !G) return;
   zoneLayer.clearLayers();
   for (const [id, p] of visiblePoints()) {
-    const col = TYPES[p.type].color;
+    const col = (TYPES[p.type] || TYPES.bankje).color;
     const spied = LS.spyUntil > now() && LS.spyPid === id;
-    const circle = L_.circle([p.zoneLat, p.zoneLng], { radius: CONFIG.zoneRadius, color: spied ? '#ef4444' : col, weight: spied ? 4 : 2,
+    const circle = L_.polygon(zonePoly(p), { color: spied ? '#ef4444' : col, weight: spied ? 4 : 2, smoothFactor: 1.5,
       dashArray: spied ? '8 6' : null, fillColor: col, fillOpacity: .18 });
     const label = L_.marker([p.zoneLat, p.zoneLng], { icon: L_.divIcon({ className: '',
       html: `<span class="zone-label ${p.type === 'goud' ? 'goud' : ''}">${p.value}</span>`, iconSize: [0, 0] }) });
@@ -846,7 +932,8 @@ function startRunning() {
   drawZones(); drawPlayer();
   clearInterval(tickTimer);
   tickTimer = setInterval(tick, 1000);
-  if (target()) enterNav(); else show('overview');
+  if (LS.targetId && !target()) show('nav');      // punten nog aan het laden: niet de kaart tonen
+  else if (target()) enterNav(); else show('overview');
   tick();
 }
 function stopRunning() {
@@ -857,7 +944,7 @@ function stopRunning() {
 function openSheet(id) {
   const p = G.points[id]; if (!p) return;
   selectedId = id;
-  $('sheetTitle').textContent = TYPES[p.type].name;
+  $('sheetTitle').textContent = p.type === 'goud' ? 'Gouden bankje' : 'Bankje';
   $('sheetValue').textContent = p.value + ' punten';
   const z = { lat: p.zoneLat, lng: p.zoneLng };
   $('sheetDist').textContent = pos ? '± ' + fmtDist(dist(pos, z)) + ' ' + compassWord(bearing(pos, z)) : 'afstand onbekend';
@@ -867,7 +954,7 @@ function openSheet(id) {
 function closeSheet() { $('sheet').classList.remove('open'); selectedId = null; }
 
 function choose() {
-  if (selectedId == null || now() < LS.lockedUntil) return;
+  if (selectedId == null || now() < LS.lockedUntil || LS.targetId) return;
   LS.targetId = selectedId; saveLocal();
   G.ref.child('teams/' + ME.id + '/target').set(selectedId);
   closeSheet(); enterNav();
@@ -877,8 +964,8 @@ let radarMap = null, radarTarget = null, radarMe = null;
 function enterNav() {
   const t = target(); if (!t) { show('overview'); return; }
   if (radarMap) radarMap._fitted = false;
-  $('navLookFor').textContent = t.hint;
-  $('navValue').textContent = TYPES[t.type].name + ' · ' + t.value + ' pt';
+  $('navLookFor').textContent = t.type === 'goud' ? 'het gouden bankje' : 'het bankje';
+  $('navValue').textContent = t.value + ' punten';
   show('nav');
   renderNav(); renderNavTags(); renderRadar();
   tryClaim();
@@ -1020,29 +1107,33 @@ async function spend(amount, label) {
 function openShop() {
   $('shopScore').textContent = myScore();
   const list = $('shopList'); list.innerHTML = '';
-  let section = '';
+  let section = '', grid = null;
   const others = Object.keys(G.teams).filter(id => id !== ME.id).length;
   for (const item of SHOP) {
     const sec = item.kind === 'team' ? 'Tegen andere teams' : 'Voor jezelf';
-    if (sec !== section) { section = sec; const h = document.createElement('div'); h.className = 'sec'; h.textContent = sec; list.appendChild(h); }
-    const row = document.createElement('div'); row.className = 'item';
-    const txt = document.createElement('div'); txt.className = 'txt';
-    const nm = document.createElement('strong'); nm.textContent = item.name;
-    const ds = document.createElement('span'); ds.className = 'small'; ds.textContent = item.desc;
-    txt.append(nm, ds);
-    const btn = document.createElement('button');
+    if (sec !== section) {
+      section = sec;
+      const h = document.createElement('div'); h.className = 'sec'; h.textContent = sec; list.appendChild(h);
+      grid = document.createElement('div'); grid.className = 'shopgrid'; list.appendChild(grid);
+    }
     let reason = '';
-    if (myScore() < item.price) reason = item.price + ' pt';
-    else if (item.kind === 'team' && !others) reason = 'Geen teams';
-    else if (item.needsTarget && !target()) reason = 'Kies eerst punt';
+    if (myScore() < item.price) reason = 'Te weinig punten';
+    else if (item.kind === 'team' && !others) reason = 'Geen andere teams';
+    else if (item.needsTarget && !target()) reason = 'Kies eerst een bankje';
     else if (item.id === 'radar' && LS.radarUntil > now()) reason = 'Actief';
     else if (item.id === 'schild' && ((myTeam().effects || {}).shieldUntil || 0) > now()) reason = 'Actief';
     else if (LS.boosts[item.id]) reason = 'Actief';
-    btn.textContent = reason || 'Koop · ' + item.price;
-    btn.disabled = !!reason;
-    if (!reason) btn.className = 'primary';
-    btn.onclick = () => item.kind === 'team' ? openPick(item) : buySelf(item);
-    row.append(txt, btn); list.appendChild(row);
+    const tile = document.createElement('button');
+    tile.className = 'tile' + (item.kind === 'team' ? ' attack' : '');
+    tile.disabled = !!reason;
+    tile.title = item.desc;
+    const ic = document.createElement('div'); ic.className = 'ic'; ic.textContent = item.icon;
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = item.name;
+    const sh = document.createElement('div'); sh.className = 'sh'; sh.textContent = reason || item.short;
+    const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = item.price;
+    tile.append(pr, ic, nm, sh);
+    tile.onclick = () => item.kind === 'team' ? openPick(item) : buySelf(item);
+    grid.appendChild(tile);
   }
   $('ovShop').classList.add('show');
 }
@@ -1070,7 +1161,7 @@ let pickItem = null;
 function openPick(item) {
   pickItem = item;
   $('ovShop').classList.remove('show');
-  $('pickTitle').textContent = item.name + ' op welk team?';
+  $('pickTitle').textContent = item.icon + ' ' + item.name + ' op welk team?';
   $('pickInfo').textContent = item.desc + ' Kost ' + item.price + ' punten.';
   const list = $('pickList'); list.innerHTML = '';
   for (const [id, t] of sortedTeams()) {
@@ -1167,10 +1258,17 @@ $('btnCancelPoints').onclick = () => cancelTarget(false);
 $('btnCancelBack').onclick = () => $('ovCancel').classList.remove('show');
 
 // Vorige teamnaam en lopend spel
-$('optTeam').value = lsGet('kj-team') || '';
+$('hostTeam').value = $('joinTeam').value = lsGet('kj-team') || '';
+$$('[data-go]').forEach(b => b.onclick = () => { showErr(''); show(b.dataset.go); });
+// Lopend spel? Dan direct terug, zonder knop (bijv. na herladen van de pagina)
 (() => {
   const s = lsGet('kj-session');
-  if (s) { $('btnResume').style.display = 'block'; $('btnResume').textContent = 'Terug naar spel ' + s.code + ' (' + s.name + ')'; }
+  if (s) {
+    $('btnResume').style.display = 'block'; $('btnResume').textContent = 'Terug naar spel ' + s.code + ' (' + s.name + ')';
+    resumeGame();
+    // iPhone geeft het kompas pas na een tik vrij
+    document.addEventListener('click', () => startCompass(), { once: true });
+  }
 })();
 </script>
 </body>
