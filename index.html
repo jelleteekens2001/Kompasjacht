@@ -39,7 +39,9 @@
   .back { align-self: flex-start; background: transparent; padding: 6px 0; color: var(--muted); }
   .rules p { margin: 0; line-height: 1.5; }
   .iconlist { list-style: none; padding-left: 0 !important; }
-  .iconlist b { display: inline-block; min-width: 9.5em; }
+  .iconlist { gap: 10px !important; }
+  .iconlist b { display: block; font-size: 15px; color: var(--text); }
+  .iconlist li { color: var(--muted); }
   #start, #lobby, .sub { padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; gap: 16px; }
   #start h1 { margin: 12px 0 0; font-size: 34px; letter-spacing: -.5px; }
   #start p { margin: 0; color: var(--muted); line-height: 1.5; }
@@ -232,14 +234,14 @@
     <p>In de winkel koop je powerups met je punten. Ze werken direct. Punten uitgeven is een gok: je hebt er minder, maar kunt er meer mee verdienen.</p>
     <ul class="iconlist">
       <li><b>📡 Radar</b> 30 seconden de exacte plek van je bankje op de kaart.</li>
-      <li><b>🧲 Magneet</b> claimen vanaf 50 meter, voor je huidige of volgende bankje.</li>
-      <li><b>🚀 Turbo</b> je volgende claim levert dubbele punten op.</li>
-      <li><b>🛡️ Schild</b> blokkeert de eerstvolgende sabotage, 10 minuten geldig.</li>
-      <li><b>🔍 Verkenner</b> zie hoe vaak jullie bankje al geclaimd is.</li>
-      <li><b>👣 Spoorzoeker</b> zie 2 minuten welke zone een ander team zoekt.</li>
-      <li><b>🌫️ Mist</b> een ander team ziet 3 minuten geen afstand meer.</li>
-      <li><b>🌀 Kompasstoring</b> het kompas van een ander team draait 2 minuten alle kanten op.</li>
-      <li><b>🧊 Bevriezing</b> een ander team kan 3 minuten niet claimen.</li>
+      <li><b>🧲 Magneet</b> Claimen vanaf 50 meter, voor je huidige of volgende bankje.</li>
+      <li><b>🚀 Turbo</b> Je volgende claim levert dubbele punten op.</li>
+      <li><b>🛡️ Schild</b> Blokkeert de eerstvolgende sabotage, 10 minuten geldig.</li>
+      <li><b>🔍 Verkenner</b> Zie hoe vaak jullie bankje al geclaimd is.</li>
+      <li><b>👣 Spoorzoeker</b> Zie 2 minuten welke zone een ander team zoekt.</li>
+      <li><b>🌫️ Mist</b> Een ander team ziet 3 minuten geen afstand meer.</li>
+      <li><b>🌀 Kompasstoring</b> Het kompas van een ander team draait 2 minuten alle kanten op.</li>
+      <li><b>🧊 Bevriezing</b> Een ander team kan 3 minuten niet claimen.</li>
     </ul>
     <p class="small">Een team kan maximaal één keer per 10 minuten gesaboteerd worden, en ziet altijd wie het was.</p>
   </div>
