@@ -232,7 +232,7 @@
     <h3>🏆 Punten</h3>
     <ul>
       <li>Elk team begint met <strong>100 punten</strong> startbudget, zodat je meteen iets in de winkel kunt kopen.</li>
-      <li>Elk checkpoint is <strong>100 punten</strong> waard, maar <strong>de waarde loopt af</strong> zodra je het kiest: 5 punten per minuut, tot minimaal 30. Hoe sneller je er bent, hoe meer je krijgt. Je ziet de actuele waarde in het kompasscherm.</li>
+      <li>Elk checkpoint is <strong>100 punten</strong> waard, maar <strong>de waarde loopt af</strong> zodra je het kiest: 5% per minuut, tot minimaal 30%. Hoe sneller je er bent, hoe meer je krijgt. Je ziet het actuele percentage in het kompasscherm.</li>
       <li>Alle teams zien dezelfde checkpoints. Het <strong>eerste</strong> team krijgt 100, het <strong>tweede</strong> 20, daarna niks. Na twee claims verdwijnt het checkpoint.</li>
       <li>Je ziet <strong>niet</strong> of een ander team er al geweest is. Dat merk je pas als je er bent. Een team dat al onderweg is, houdt zijn checkpoint, ook als het intussen verdwenen is.</li>
       <li>Elke keer als er 3 checkpoints verdwenen zijn, komen er 3 nieuwe bij.</li>
@@ -1058,9 +1058,9 @@ function decayFactor() {
 function liveValue(p) { return Math.round(p.value * decayFactor()); }
 function renderValue() {
   const t = target(); if (!t) return;
-  const v = liveValue(t);
-  $('navValue').textContent = 'Nu waard: ' + v + ' pt' + (v < t.value ? ' (van ' + t.value + ')' : '');
-  $('navValue').className = 'tag' + (v < t.value * 0.6 ? ' bad' : v < t.value ? ' on' : '');
+  const pct = Math.round(decayFactor() * 100);
+  $('navValue').textContent = 'Waarde: ' + pct + '%';
+  $('navValue').className = 'tag' + (pct < 60 ? ' bad' : pct < 100 ? ' on' : '');
 }
 
 function renderNav() {
