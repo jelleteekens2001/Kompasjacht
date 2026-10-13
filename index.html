@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<title>Kompasjacht</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --panel2: #273449; --text: #f1f5f9; --muted: #94a3b8;
+    --accent: #22c55e; --danger: #ef4444; --gold: #eab308; --line: #334155;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; }
+  button { font: inherit; border: 0; border-radius: 14px; padding: 14px 18px; font-weight: 600;
+    background: var(--panel2); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); color: #052e12; }
+  button.danger { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+  button:disabled { opacity: .45; cursor: default; }
+  .screen { position: fixed; inset: 0; display: none; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* Start */
+  #start { padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); overflow-y: auto; gap: 16px; }
+  #start h1 { margin: 12px 0 0; font-size: 34px; letter-spacing: -.5px; }
+  #start p { margin: 0; color: var(--muted); line-height: 1.5; }
+  .card { background: var(--panel); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .card label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  select, input[type=number], input[type=text] { font: inherit; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 10px; max-width: 60%; }
+  input[type=checkbox] { width: 22px; height: 22px; }
+  .small { font-size: 13px; color: var(--muted); }
+  .rules h3 { margin: 4px 0 0; font-size: 16px; }
+  .rules ol, .rules ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.45; }
+  .rules p { color: var(--text); }
+  .shopbtn { padding: 8px 12px; border-radius: 99px; background: var(--gold); color: #422006; font-size: 14px; }
+  .shoplist { display: flex; flex-direction: column; gap: 8px; text-align: left; max-height: 60vh; overflow-y: auto; }
+  .shopitem { background: var(--panel2); border-radius: 14px; padding: 12px; display: flex; gap: 12px; align-items: center; }
+  .shopitem .txt { flex: 1; }
+  .shopitem .txt strong { display: block; }
+  .shopitem button { padding: 10px 12px; white-space: nowrap; }
+  .shopsec { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  #radarMap { width: min(80vw, 340px); height: 220px; border-radius: 16px; display: none; }
+  .boosts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .board { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: r; }
+  .board li { background: var(--panel2); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; counter-increment: r; }
+  .board li::before { content: counter(r); width: 22px; font-weight: 700; color: var(--muted); }
+  .board li.me { outline: 2px solid var(--accent); }
+  .board li .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board li .when { font-size: 12px; color: var(--muted); }
+  .tag.on { background: var(--gold); color: #422006; }
+
+  /* Header */
+  .hud { display: flex; justify-content: space-between; align-items: center; padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    background: var(--panel); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; z-index: 500; }
+  .hud .score { font-size: 22px; font-weight: 700; }
+  .hud .time { font-size: 18px; font-weight: 600; }
+  .hud .time.low { color: var(--danger); }
+  .tag { font-size: 12px; padding: 3px 8px; border-radius: 99px; background: var(--panel2); color: var(--muted); }
+
+  /* Overview */
+  #map { flex: 1; background: #cbd5e1; }
+  .zone-label { background: rgba(15,23,42,.85); color: #fff; border-radius: 99px; padding: 3px 8px; font-weight: 700;
+    font-size: 13px; white-space: nowrap; transform: translate(-50%,-50%); display: inline-block; }
+  .zone-label.goud { background: var(--gold); color: #422006; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 600; background: var(--panel); border-radius: 20px 20px 0 0;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); display: none; flex-direction: column; gap: 12px;
+    box-shadow: 0 -8px 30px rgba(0,0,0,.4); }
+  .sheet.open { display: flex; }
+  .sheet h2 { margin: 0; font-size: 22px; }
+  .sheet .row { display: flex; gap: 10px; }
+  .sheet .row button { flex: 1; }
+  .banner { position: absolute; top: calc(70px + env(safe-area-inset-top)); left: 16px; right: 16px; z-index: 700; background: var(--panel);
+    border-radius: 14px; padding: 12px 14px; display: none; box-shadow: 0 6px 20px rgba(0,0,0,.4); font-weight: 600; }
+  .banner.show { display: block; }
+  .banner.gold { background: var(--gold); color: #422006; }
+  .hint-bar { position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 550;
+    background: rgba(15,23,42,.9); border-radius: 12px; padding: 10px 12px; font-size: 14px; text-align: center; }
+
+  /* Nav */
+  #nav .body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; }
+  .compass { width: min(72vw, 320px); aspect-ratio: 1; border-radius: 50%; position: relative;
+    background: radial-gradient(circle, var(--panel2) 0 58%, var(--panel) 59%); border: 2px solid var(--line); }
+  .compass .arrow { position: absolute; inset: 0; transition: transform .15s linear; }
+  .compass .arrow svg { width: 100%; height: 100%; }
+  .compass .north { position: absolute; inset: 0; }
+  .compass .north span { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); font-size: 13px; font-weight: 700; color: var(--danger); }
+  .dist { font-size: 56px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+  .lookfor { font-size: 18px; text-align: center; }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .navfoot { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+
+  /* Overlay */
+  .overlay { position: fixed; inset: 0; background: rgba(2,6,23,.75); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 16px; }
+  .overlay.show { display: flex; }
+  .modal { background: var(--panel); border-radius: 20px; padding: 22px 18px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 12px; text-align: center; }
+  .modal h2 { margin: 0; font-size: 26px; }
+  .modal .big { font-size: 48px; font-weight: 800; color: var(--accent); }
+  .modal p { margin: 0; color: var(--muted); }
+
+  /* End */
+  #end { padding: calc(24px + env(safe-area-inset-top)) 16px 24px; overflow-y: auto; gap: 14px; }
+  #end .final { font-size: 64px; font-weight: 800; color: var(--accent); }
+  #end ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  #end li { background: var(--panel); border-radius: 12px; padding: 10px 12px; display: flex; justify-content: space-between; gap: 10px; }
+</style>
+</head>
+<body>
+
+<!-- START -->
+<section id="start" class="screen active">
+  <h1>Kompasjacht</h1>
+  <p>Verzamel zoveel mogelijk punten voordat de tijd om is, door naar echte plekken in Eindhoven te gaan.</p>
+
+  <div class="card rules">
+    <h3>Zo speel je</h3>
+    <ol>
+      <li><strong>Kies een zone.</strong> Op de kaart zie je cirkels met hun puntwaarde. Het punt ligt ergens in de cirkel, niet per se in het midden.</li>
+      <li><strong>Volg het kompas.</strong> Na het kiezen zie je alleen nog een pijl, de afstand in vogelvlucht en wat je zoekt, zoals een bankje of kunstwerk.</li>
+      <li><strong>Claim het punt.</strong> Sta binnen 20 meter en je claimt automatisch. Je krijgt geen seintje als je dichtbij bent: zoek het object zelf.</li>
+      <li><strong>Kies het volgende punt.</strong> Pas na een claim kun je een nieuwe zone kiezen.</li>
+    </ol>
+    <h3>Punten</h3>
+    <ul>
+      <li>Bankje of picknicktafel: <strong>60</strong> · kunstwerk, fontein of monument: <strong>100</strong> · iconische plek: <strong>150</strong></li>
+      <li>Op minuut 25 en 55 verschijnt een <strong>gouden punt</strong> van 300.</li>
+      <li>Na elke 3 geclaimde punten komen er 3 nieuwe bij.</li>
+    </ul>
+    <h3>Annuleren en winkel</h3>
+    <ul>
+      <li>Vast of van gedachten veranderd? Annuleer je punt voor <strong>2 minuten wachten</strong> of <strong>40 punten</strong>.</li>
+      <li>In de <strong>winkel</strong> koop je powerups met je punten. Uitgeven kost punten, maar kan je meer opleveren.</li>
+    </ul>
+    <h3>Speelveld</h3>
+    <p>Centrum, Stratum, Rozenknopje en De Laak. Let op het verkeer: verkeersregels gaan altijd voor.</p>
+  </div>
+
+  <div class="card">
+    <label>Teamnaam
+      <input id="optTeam" type="text" maxlength="24" placeholder="Bijv. De Bankzitters">
+    </label>
+    <label>Speelduur (minuten)
+      <input id="optDuration" type="number" min="5" max="240" value="75">
+    </label>
+  </div>
+
+  <button id="btnStart" class="primary">Start spel</button>
+  <button id="btnResume" style="display:none">Doorgaan met lopend spel</button>
+  <p id="startMsg" class="small"></p>
+
+  <div class="card" id="boardStartCard" style="display:none">
+    <h3 style="margin:0">Scorebord</h3>
+    <ol class="board" id="boardStart"></ol>
+  </div>
+</section>
+
+<!-- OVERVIEW -->
+<section id="overview" class="screen">
+  <div class="hud">
+    <div><div class="small">Punten</div><div class="score" id="hudScore1">0</div></div>
+    <span class="tag" id="hudLock" style="display:none"></span>
+    <button class="shopbtn" data-shop>Winkel</button>
+    <div style="text-align:right"><div class="small">Tijd</div><div class="time" id="hudTime1">--:--</div></div>
+  </div>
+  <div style="position:relative; flex:1; display:flex;">
+    <div id="map"></div>
+    <div class="banner" id="banner"></div>
+    <div class="hint-bar" id="hintBar">Tik op een zone om een punt te kiezen</div>
+    <div class="sheet" id="sheet">
+      <h2 id="sheetTitle">Zone</h2>
+      <div class="meta" style="justify-content:flex-start">
+        <span class="tag" id="sheetValue"></span>
+        <span class="tag" id="sheetDist"></span>
+      </div>
+      <div class="small">Het punt ligt ergens binnen de cirkel. Na het kiezen zie je alleen nog richting en afstand.</div>
+      <div class="row">
+        <button id="btnSheetClose">Terug</button>
+        <button id="btnChoose" class="primary">Kies dit punt</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NAV -->
+<section id="nav" class="screen">
+  <div class="hud">
+    <div><div class="small">Punten</div><div class="score" id="hudScore2">0</div></div>
+    <button class="shopbtn" data-shop>Winkel</button>
+    <div style="text-align:right"><div class="small">Tijd</div><div class="time" id="hudTime2">--:--</div></div>
+  </div>
+  <div class="body">
+    <div class="lookfor">Zoek <strong id="navLookFor">een bankje</strong></div>
+    <div class="compass">
+      <div class="north" id="navNorth"><span>N</span></div>
+      <div class="arrow" id="navArrow">
+        <svg viewBox="0 0 100 100"><path d="M50 10 L66 60 L50 52 L34 60 Z" fill="#22c55e"/></svg>
+      </div>
+    </div>
+    <div id="radarMap"></div>
+    <div class="dist" id="navDist">-- m</div>
+    <div class="boosts" id="navBoosts"></div>
+    <div class="meta">
+      <span class="tag" id="navValue"></span>
+      <span class="tag" id="navAcc">GPS: --</span>
+      <span class="tag" id="navCompass">Kompas: --</span>
+    </div>
+  </div>
+  <div class="navfoot">
+    <button id="btnCancel" class="danger">Punt annuleren</button>
+  </div>
+</section>
+
+<!-- END -->
+<section id="end" class="screen">
+  <h1 style="margin:0">Tijd is op!</h1>
+  <div class="small">Eindscore</div>
+  <div class="final" id="endScore">0</div>
+  <div class="small" id="endRank"></div>
+  <h3 style="margin:8px 0 0">Scorebord</h3>
+  <ol class="board" id="boardEnd"></ol>
+  <h3 style="margin:8px 0 0">Jullie potje</h3>
+  <ul id="endList"></ul>
+  <button id="btnNew" class="primary">Nieuw spel</button>
+</section>
+
+<!-- OVERLAYS -->
+<div class="overlay" id="ovClaim">
+  <div class="modal">
+    <h2 id="claimTitle">Geclaimd!</h2>
+    <div class="big" id="claimPoints">+60</div>
+    <p id="claimWhat"></p>
+    <button class="primary" id="btnClaimOk">Volgende punt kiezen</button>
+  </div>
+</div>
+
+<div class="overlay" id="ovShop">
+  <div class="modal">
+    <h2>Winkel</h2>
+    <p>Je hebt <strong id="shopScore">0</strong> punten. Powerups werken direct.</p>
+    <div class="shoplist" id="shopList"></div>
+    <button class="danger" id="btnShopClose">Sluiten</button>
+  </div>
+</div>
+
+<div class="overlay" id="ovCancel">
+  <div class="modal">
+    <h2>Punt annuleren?</h2>
+    <p>Kies hoe je betaalt. Daarna kies je een nieuw punt.</p>
+    <button id="btnCancelTime"></button>
+    <button id="btnCancelPoints"></button>
+    <button class="danger" id="btnCancelBack">Toch niet</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   SPELREGELS — pas hier de getallen aan
+   ========================================================= */
+const CONFIG = {
+  activePoints: 6,          // aantal punten op de kaart bij de start
+  respawnEvery: 3,          // na elke 3 verdwenen punten...
+  respawnCount: 3,          // ...komen er 3 nieuwe bij
+  zoneRadius: 150,          // straal van de zone-cirkel (m)
+  claimRadius: 20,          // binnen deze afstand claim je automatisch (m)
+  claimsPerPoint: 2,        // een punt verdwijnt na 2 claims (multiplayer)
+  payout: [1, 0.2],         // 1e claim 100%, 2e claim 20%, daarna niks
+  cancelTimeMin: 2,         // annuleren: wachttijd in minuten...
+  cancelPointCost: 40,      // ...of zoveel punten
+  goldAtMin: [25, 55],      // momenten waarop een gouden punt verschijnt
+  minDistFromPlayer: 250,   // nieuw punt niet vlak naast een speler (m)
+  minDistBetweenPoints: 200, // punten niet te dicht op elkaar (m)
+  southLimit: 51.415        // alles ten zuiden van deze breedtegraad valt buiten het speelveld
+};
+
+/* Winkel: powerups kosten punten en werken direct na aankoop. */
+const SHOP = [
+  { id: 'radar',   name: 'Radar',   price: 40, desc: '30 seconden de exacte plek van je punt op de kaart.', needsTarget: true },
+  { id: 'magneet', name: 'Magneet', price: 40, desc: 'Claimstraal 50 m voor je huidige of volgende punt.' },
+  { id: 'turbo',   name: 'Turbo',   price: 60, desc: 'Je huidige of volgende claim telt dubbel.' },
+  // Deze werken pas als er meerdere teams zijn:
+  { id: 'verkenner',     name: 'Verkenner',     price: 20, desc: 'Zie hoe vaak een punt al geclaimd is.', multi: true },
+  { id: 'spoorzoeker',   name: 'Spoorzoeker',   price: 30, desc: 'Zie welk punt een ander team gekozen heeft.', multi: true },
+  { id: 'schild',        name: 'Schild',        price: 50, desc: 'Blokkeert de volgende sabotage (10 min).', multi: true },
+  { id: 'mist',          name: 'Mist',          price: 40, desc: 'Ander team ziet 3 min geen afstand.', multi: true },
+  { id: 'kompasstoring', name: 'Kompasstoring', price: 50, desc: 'Kompas van een ander team draait 2 min willekeurig.', multi: true },
+  { id: 'bevriezing',    name: 'Bevriezing',    price: 70, desc: 'Ander team kan 3 min niet claimen.', multi: true }
+];
+const MAGNET_RADIUS = 50, RADAR_SECONDS = 30;
+
+const TYPES = {
+  bankje:      { name: 'Bankje',     value: 60,  color: '#3b82f6' },
+  kunstwerk:   { name: 'Kunstwerk',  value: 100, color: '#a855f7' },
+  iconisch:    { name: 'Iconisch punt', value: 150, color: '#f97316' },
+  goud:        { name: 'Gouden punt', value: 300, color: '#eab308' }
+};
+
+/* =========================================================
+   SPEELVELD EINDHOVEN — vooraf ingeladen, zodat de app direct start
+   Grenzen: CBS Wijk- en Buurtkaart 2023 (via PDOK), licht vereenvoudigd.
+   Stadsdeel Centrum, stadsdeel Stratum (Oud-Stratum, Kortonjo, Putten),
+   wijk Rozenknopje en wijk De Laak.
+   ========================================================= */
+const SPEELVELD = [{"name":"Centrum","ring":[[51.44646,5.50103],[51.44429,5.50284],[51.44393,5.49752],[51.44323,5.49182],[51.44218,5.48461],[51.4406,5.48469],[51.44044,5.48487],[51.44029,5.48572],[51.43988,5.48649],[51.43961,5.4867],[51.4393,5.48681],[51.43635,5.48458],[51.43606,5.48516],[51.43588,5.48547],[51.43533,5.48596],[51.43493,5.48608],[51.43353,5.48595],[51.43251,5.4856],[51.43233,5.4853],[51.43229,5.48496],[51.43221,5.48396],[51.43236,5.48357],[51.4343,5.48076],[51.43325,5.4794],[51.43278,5.47933],[51.43266,5.4792],[51.43258,5.47884],[51.43246,5.47859],[51.43225,5.47847],[51.43063,5.47933],[51.42928,5.47858],[51.42974,5.4783],[51.43093,5.47812],[51.43274,5.47596],[51.43381,5.47443],[51.43552,5.47126],[51.43731,5.46874],[51.43783,5.46866],[51.43886,5.46905],[51.44093,5.46887],[51.44111,5.46899],[51.44126,5.46911],[51.44313,5.47155],[51.44354,5.47286],[51.44364,5.47282],[51.4445,5.47196],[51.44537,5.47498],[51.44528,5.47671],[51.44527,5.4769],[51.4463,5.47698],[51.44639,5.48038],[51.44774,5.48083],[51.45137,5.48368],[51.45288,5.48442],[51.45247,5.49213],[51.45231,5.49327],[51.45185,5.49503],[51.45147,5.49597],[51.45112,5.49659],[51.4504,5.49759],[51.44789,5.49984],[51.44732,5.5007],[51.44723,5.50078],[51.44703,5.50094],[51.44668,5.50097],[51.44646,5.50103]]},{"name":"Oud-Stratum","ring":[[51.43258,5.50324],[51.4299,5.50227],[51.42949,5.50199],[51.42912,5.50171],[51.42839,5.50088],[51.42771,5.4998],[51.42543,5.49537],[51.42417,5.49279],[51.42381,5.49152],[51.42371,5.49092],[51.42365,5.49029],[51.42367,5.48876],[51.42463,5.47719],[51.425,5.47727],[51.42508,5.4772],[51.42541,5.47599],[51.42584,5.47552],[51.42645,5.47568],[51.42672,5.47546],[51.42692,5.47549],[51.42748,5.47602],[51.42925,5.47855],[51.43037,5.4793],[51.43063,5.47933],[51.4309,5.47925],[51.43225,5.47847],[51.43246,5.47859],[51.43258,5.47884],[51.43266,5.4792],[51.43278,5.47933],[51.43325,5.4794],[51.4343,5.48076],[51.43236,5.48357],[51.43221,5.48396],[51.43229,5.48496],[51.43233,5.4853],[51.43251,5.4856],[51.43353,5.48595],[51.43493,5.48608],[51.43533,5.48596],[51.43588,5.48547],[51.43606,5.48516],[51.43635,5.48458],[51.43746,5.48542],[51.43767,5.48559],[51.43688,5.49034],[51.43491,5.50405],[51.43258,5.50324]]},{"name":"Kortonjo","ring":[[51.42367,5.48876],[51.42365,5.49029],[51.42371,5.49092],[51.42417,5.49279],[51.42145,5.49495],[51.41609,5.49733],[51.41576,5.49768],[51.41446,5.49842],[51.40746,5.50145],[51.40556,5.50246],[51.40387,5.50245],[51.40011,5.50464],[51.40005,5.50426],[51.40152,5.50362],[51.40311,5.50154],[51.40386,5.49985],[51.40396,5.49935],[51.40427,5.49782],[51.40441,5.49377],[51.40464,5.49109],[51.40445,5.48992],[51.40471,5.48905],[51.40459,5.48107],[51.40493,5.4778],[51.40488,5.4771],[51.40631,5.47656],[51.40661,5.47627],[51.40726,5.47567],[51.40794,5.4762],[51.40866,5.47528],[51.40879,5.4752],[51.4102,5.47572],[51.41038,5.476],[51.41038,5.4762],[51.41025,5.47639],[51.41017,5.47675],[51.4102,5.47692],[51.41039,5.47691],[51.41158,5.47652],[51.41189,5.47601],[51.41268,5.47536],[51.41322,5.47535],[51.41336,5.4755],[51.41357,5.47601],[51.41422,5.47579],[51.4143,5.47548],[51.41445,5.47511],[51.4151,5.47474],[51.41539,5.47481],[51.41568,5.47533],[51.41561,5.47585],[51.41573,5.47603],[51.41623,5.47631],[51.41678,5.47701],[51.41725,5.47721],[51.41779,5.47736],[51.41798,5.4776],[51.41836,5.47886],[51.41856,5.47951],[51.41854,5.48017],[51.41872,5.48055],[51.41884,5.48081],[51.41907,5.48097],[51.41952,5.48056],[51.41968,5.48051],[51.42062,5.48108],[51.42079,5.48106],[51.42198,5.48022],[51.42223,5.47951],[51.42222,5.47798],[51.42361,5.47768],[51.4243,5.47717],[51.42463,5.47719],[51.42367,5.48876]]},{"name":"Putten","ring":[[51.43218,5.53209],[51.43199,5.53203],[51.432,5.5319],[51.43201,5.53181],[51.42895,5.53124],[51.42829,5.53184],[51.42803,5.53178],[51.42799,5.53118],[51.42742,5.53096],[51.42721,5.53065],[51.42799,5.5252],[51.4279,5.52518],[51.42785,5.52517],[51.4047,5.52581],[51.40449,5.52439],[51.4047,5.52241],[51.40471,5.51343],[51.40458,5.50907],[51.40453,5.50761],[51.40391,5.50568],[51.40348,5.50524],[51.40342,5.50518],[51.40104,5.50464],[51.40103,5.50464],[51.40068,5.50473],[51.40015,5.50487],[51.40011,5.50464],[51.40387,5.50245],[51.40556,5.50246],[51.40746,5.50145],[51.41446,5.49842],[51.41576,5.49768],[51.41609,5.49733],[51.42119,5.49512],[51.42417,5.49279],[51.42771,5.4998],[51.42874,5.50134],[51.4299,5.50227],[51.43491,5.50405],[51.43422,5.51005],[51.43218,5.53209]]},{"name":"De Laak","ring":[[51.43578,5.50439],[51.43491,5.50405],[51.43688,5.49034],[51.43767,5.48559],[51.4393,5.48681],[51.43961,5.4867],[51.43988,5.48649],[51.44029,5.48572],[51.44044,5.48487],[51.4406,5.48469],[51.44218,5.48461],[51.44323,5.49182],[51.44393,5.49752],[51.44429,5.50284],[51.44262,5.50375],[51.43886,5.50492],[51.43711,5.50484],[51.43578,5.50439]]},{"name":"Rozenknopje","ring":[[51.4334,5.4751],[51.43093,5.47812],[51.42974,5.4783],[51.42928,5.47858],[51.42748,5.47602],[51.42692,5.47549],[51.42672,5.47546],[51.42645,5.47568],[51.42584,5.47552],[51.42541,5.47599],[51.42508,5.4772],[51.425,5.47727],[51.42463,5.47719],[51.42507,5.47342],[51.4258,5.46982],[51.42832,5.46133],[51.4307,5.45597],[51.4318,5.45441],[51.43211,5.45495],[51.43261,5.45604],[51.43235,5.45668],[51.43374,5.46096],[51.43448,5.46247],[51.43471,5.46326],[51.43458,5.4636],[51.43521,5.46412],[51.4337,5.46654],[51.43338,5.46674],[51.43391,5.4681],[51.43428,5.46879],[51.43464,5.46944],[51.43506,5.47064],[51.43538,5.47156],[51.4334,5.4751]]}];
+
+/* Punten uit OpenStreetMap (okt 2026), binnen het speelveld.
+   Formaat per punt: noord,oost,type[,naam]  — noord/oost in 0,00001 graden vanaf 51.4 N / 5.45 O.
+   Type: b0 bankje, b1 picknicktafel, k0 kunstwerk, k1 fontein, k2 monument, i0 iconisch punt. */
+const PUNTEN = "1644,2960,k0,Watertoren;2157,4755,i0,Don Boscokerk;2772,2701,k0,zonder titel;3331,2341,k0,Olifant (de wijze);3812,2183,k0,Gekooide Vrijheid;3947,2845,k0,Jan van Hooff;3699,2865,k2,Synagoge 1866-1959;4237,2750,k0,Het Verkeer;3988,2353,k0,Gerard Philips;4412,2435,k0,Rencontre;4284,2752,k0,Het Geluid;2671,3140,k0,Radiomonument;2771,3269,k0,Septum (in gesprek met de vorigen);2774,3194,k0,Kleine Huiskamer;2754,3305,k0,Vleugel;2714,3340,k0,Kruislings Gelaagd;2718,3165,k0,Zuil;2582,3267,k0,Onderweg;2607,3346,k0,Tandem;2629,3346,k0,Bron;2621,3236,k0,Vlaggen;2636,3103,k0,Keesje het diakenhuismannetje;2637,3130,k0,Ontmoeting;2581,3135,k0,Parkbeeld;2475,3044,k0,Het Zonnebeeld;2692,3278,k0,Ring;2586,3029,k0,Zwemster;2534,3127,k0,Dubbel Kwadraat;2518,2983,k0;2750,3288,k0,Handelsreiziger;2923,3684,k0,Abraham Art;3530,3440,k0,Have a nice day;3535,3139,k0,Accolade;3505,3168,k0,Boilerput (Energie);3589,3081,k0,Casetteplafond;3606,3255,k2,De Bekoring de Wijsheid en het Gevaar;3832,3346,k0,Jonas en de walvis;3854,3381,k0,Iets Hogers;3922,3156,k0,Twee deuromlijstingen;3974,3109,k0,Twee deuromlijstingen;4184,3004,k0,Dr. A.F. Philips;3649,3009,k0,Wereldkaart;3627,3034,k0,Draadsculptuur;3782,3612,k0,Gasvlam;4528,3061,k0,Flying Pins;4704,3460,k0,KOE;4292,3437,k0,Silly Walk Eindhoven;4662,3126,k0,Mens Agitat Molem;4597,3421,k0,SOH19;4720,3502,k0,TU/e logo;4695,3544,k0,Wording;4826,3539,k0,Vliegende Amazone;4857,3646,k0,Agressie;4679,3651,k0,Vliegend;4646,3571,k0,Vloerreliëfs;4638,3790,k0,Paardenhoofden;4727,4109,k0,Leap into the Deep;4735,3603,k0,De Technische Student;4879,4335,k0,Het Blauw van de Vlinder;4822,4349,k0,Machine I;2734,6035,i0,Pius X Kerk;4942,3354,k0,Woenselse watermolen;4923,3726,k0,Turbulentie;5069,4478,k0,Metaalplastiek;1626,4748,k1,Fontein Floraplein;2096,4383,i0,Kerk van de Aartsengel Michaël;2687,1799,i0,Adventskerk;3326,1929,i0,De Vergeten Tuin;3811,1959,i0,Fatih moskee;4164,2773,k0,Twee Figuren;3686,2925,i0,Sint-Catharinakerk;2554,3063,k0,Tempeltje met Stilleven;3550,2978,k2,Bevrijdingsmonument;2999,3795,i0,Sint-Joriskerk;4390,5207,i0,Ontmoetingskerk;2365,7316,i0,Mariakapel;1668,5258,i0,Evangelische Gemeente De Lichtstad;3972,2476,i0,Witte Dame;4086,2479,i0,Lichttoren;4079,2599,i0,De Blob;3515,3047,i0,Stadhuis;3446,3183,i0,Van Abbemuseum;4172,3311,i0,Effenaar;3867,2968,i0,Muziekgebouw;3926,2532,i0,Philips Museum;3818,3400,i0,Augustijnenkerk;3802,2112,i0,Wilhelminaplein;874,2769,b0;873,2794,b0;1259,2719,b0;1243,2767,b0;1168,2749,b0;1275,2636,b0;1318,2701,b0;1307,2785,b0;1204,2816,b0;1243,2825,b0;1320,2647,b0;1808,2854,b0;1785,2799,b0;1736,2867,b0;1735,2802,b0;942,4063,b0;945,4117,b0;667,4018,b0;882,3819,b0;807,4454,b0;907,4622,b0;676,4825,b0;706,4362,b0;682,4279,b0;725,4352,b0;844,4490,b0;860,4527,b0;899,4580,b0;875,4760,b0;789,4680,b0;816,4763,b0;968,4564,b0;652,4842,b0;961,4464,b0;737,4772,b0;695,4878,b0;765,4858,b0;1295,3110,b0;1502,4150,b0;1565,4161,b0;1009,4105,b0;1010,4049,b0;1356,4091,b0;1393,3974,b0;1238,4069,b0;1356,4040,b0;1683,3295,b0;2279,2907,b0;2217,3085,b0;1813,2892,b0;1718,3013,b0;1786,3139,b0;1808,3133,b0;1802,3070,b0;1798,3085,b0;1727,3085,b0;2238,3106,b0;1967,3077,b0;1692,3131,b0;1956,3093,b0;1687,3185,b0;2065,3138,b0;1897,3162,b0;1752,3781,b0;1719,3862,b0;1711,3921,b0;1703,4099,b0;1695,4065,b0;1959,3926,b0;1976,3928,k0;1770,3682,b0;2239,3981,b0;1989,3855,b0;2008,3996,b0;2013,3929,b0;2054,3910,b0;2066,3806,b0;1072,4663,b0;1198,4627,b0;981,4696,b0;1595,4820,b0;1014,4440,b0;1289,4201,b0;1019,4380,b0;1016,4534,b0;1394,4476,b0;1571,5378,b0;1624,5354,k0;1380,5279,b0;1612,4920,b0;1524,5028,b0;1464,5149,b0;1402,5410,b0;1253,5098,b0;1233,5423,b0;1642,4663,b0;2132,4709,b0;2281,4533,b0;1944,4332,b0;2117,4749,b0;1976,4718,b0;2002,4583,b0;1897,4694,b0;2270,4812,b0;2155,4668,b0;2179,4707,b0;1850,4530,b0;1859,4518,b0;2268,5003,b0;1916,5500,b0;1904,5474,b0;1994,5227,b0;1975,5157,k0;1977,5155,b0;2060,4891,b0;2098,5043,b0;2053,5053,b0;1658,5052,b0;1854,5403,b0;2204,4898,b0;1987,5500,k0;1975,5459,b1;1988,5020,b0;1958,4926,b0;2922,1017,b0;3180,511,b0;3282,891,b0;3182,895,b0;3204,847,b0;3151,818,b0;3129,913,b0;3149,831,b0;2986,849,b0;3323,1109,b0;3454,1363,b0;3380,1216,b1;3409,1236,b0;3421,1307,k0;3324,1031,b0;2970,1337,b1;2988,1537,b0;3013,1038,b0;3041,924,b0;2954,1010,b0;2624,2224,b0;2790,1682,b0;2837,1870,b0;2543,2762,b0;2554,2777,b0;2814,2800,b0;2701,2671,b0;2689,2724,b0;2861,2737,b0;2722,2561,b0;2560,2309,b0;2535,2440,b0;2533,2586,b0;2417,2868,b0;2396,2788,b0;2494,2670,b0;2663,2312,b0;2693,2399,b0;2748,2633,b0;2808,2640,b0;2822,2238,b0;3357,2145,b0;3291,1803,b0;3185,1719,b0;2982,1714,k0;2998,2011,b0;3340,1773,b0;3179,2488,k0;3175,2537,b0;3229,2881,k0;3255,2810,k0;3066,2785,b0;2999,2876,b0;3059,2851,k0;3269,2856,b0;3344,2567,b0;3350,2617,b0;3550,2352,b0;3561,2271,b0;3566,2571,b0;3275,2732,b0;3197,2835,b0;3218,2344,b0;3300,2337,b0;3308,2367,b0;3320,2344,b0;4070,2181,b0;4062,2186,b0;4059,2157,b0;3976,2179,b0;3804,2152,k1;4122,2598,k1;3729,2571,k0;3778,2660,k0;4143,2785,k1;4099,2543,k0;3867,2401,b0;4084,2810,b0;4068,2689,b0;4032,2701,b0;4005,2842,b0;3993,2713,b0;3953,2727,b0;3869,2634,b0;4042,2455,b0;4035,2425,b0;3637,2296,b0;3632,2291,b0;4414,2429,b0;4415,2440,b0;4346,2839,b0;4386,2577,b0;4350,2865,b0;2918,2913,b0;2609,3396,b0;2578,3265,b0;2530,3156,b0;2935,3488,b0;2588,3048,b0;2564,3163,b0;2555,3399,b0;2590,3010,b0;2635,3255,b0;2612,3119,b0;2623,3371,b0;2474,3256,b0;2703,3382,b0;2460,3118,b0;2507,3002,b0;2735,3339,b0;2678,3123,b0;2727,3180,b0;2645,3157,b0;2679,3228,b0;2704,3319,b0;2743,3211,b0;2527,3310,b0;2445,3222,b0;2706,3114,b0;2931,3503,k0;2356,2997,b0;2932,3491,b0;2593,3313,b0;2395,3179,b0;2333,3996,b0;2791,3736,b0;2795,3955,b0;2798,3712,b0;2374,3588,b0;2448,4050,b0;2464,4070,b0;2305,4154,b0;2286,4150,b0;2902,3618,b0;2928,3901,b0;2984,2916,b0;3473,3106,b0;3227,2912,b0;3434,3114,k0;3195,2949,k0;3267,2944,b0;3274,2949,b0;3471,3102,b0;3060,2911,b0;3341,2987,b0;3358,3053,b0;3484,3040,k0;3431,3171,k0;3547,3161,b0;3424,3173,b0;3418,3168,b0;3580,3042,b0;3575,3029,b0;3499,3149,b0;3458,3395,b0;2998,3528,b0;3422,3998,b0;3239,3826,b0;3252,3808,b0;3473,3589,k0;3455,3561,k0;3057,4073,b0;2964,3778,k0;2989,3685,k0;3431,4100,b0;3505,4146,b0;3504,4153,b0;3422,3768,b0;3370,3865,b0;3349,3903,b0;3289,4060,b0;2929,4353,b0;2934,4360,b0;2927,4337,k0;2376,4819,b0;2539,4841,b1;2417,4395,b0;2454,4942,b0;2671,5452,b0;2566,5279,b0;2333,4900,b0;2356,4857,b0;2693,5397,b0;2823,5297,b0;2869,5474,b0;2820,5149,k0;2293,5383,b0;2577,5382,b0;2562,5432,k0;2546,5439,b1;2855,5077,b0;2392,5205,b0;2474,5054,b0;2625,5474,b0;2462,5489,b0;2510,5412,k0;2781,4944,b0;3134,4772,k1;3207,4599,b0;3548,4679,b0;3538,4653,b0;3525,4663,b0;3522,4761,b0;3250,4207,b0;3224,4569,b0;3205,5019,b0;3167,4944,b0;3147,5070,b0;3122,5222,b0;3155,5225,b0;3241,5032,k0;3119,5220,k0;3164,5154,b0;3213,4891,b0;2979,5192,b0;3766,3135,k0;4183,3368,b0;4188,3382,b0;4173,3361,b0;3711,2964,k0;3844,3273,k0;4028,3076,k0;3726,2961,b0;3759,3029,b0;4017,2909,b0;4205,3035,b0;4062,2996,b0;3853,2930,b0;3761,3155,b0;3738,3170,b0;3681,2957,b0;3665,3266,b0;3662,2886,b0;4156,3445,b0;3738,3796,b0;3700,3957,k0;3708,3839,b0;3685,4121,b0;3699,3899,b0;3917,3588,b0;4173,3905,b0;4158,3793,b0;3843,3646,b0;3839,3754,b0;3798,3832,b0;3783,3833,b0;3778,4121,b0;3610,3666,b0;3603,3631,b0;4432,3073,b0;4398,2988,b0;4600,3260,b0;4671,3230,b0;4732,3222,b0;4902,3366,b0;4652,3215,k0;4659,3424,k0;4293,3062,b0;4344,3138,b0;4392,3370,k0;4757,3752,k0;4860,3692,b0;4893,3705,b0;4735,3646,b0;4756,3558,b0;4812,3543,b0;4828,3841,k0;4541,4081,b0;4523,3842,b0;4663,4085,b1;4694,4171,b1;4700,4052,b1;4683,3968,b1;4527,3895,b0;4652,4074,b0;4721,4060,b0;4733,4116,b0;3823,4729,b0;3845,4763,b0;4017,4486,b0;3630,4509,b0;4177,4580,b0;4082,4291,b0;3895,4828,b0;4176,4648,b0;4168,4652,b0;4168,4726,b0;4220,4842,b0;4245,4829,b0;4185,4423,b0;4084,4206,b0;3866,4648,b0;3828,4254,b0;3734,4274,b0;4059,5175,b0;3914,4902,b0;3957,4969,b0;4009,5052,b0;3643,5444,k0;3868,5215,b0;4233,5109,b0;4249,4877,b0;4004,5273,b0;3979,5223,b0;3957,5200,b0;3947,5070,b0;3829,4927,b0;3712,5073,b0;3689,5181,b0;3689,5185,b0;4564,4304,b0;4667,4361,b0;4328,4720,b0;4405,5123,b0;4340,5182,k0;772,6679,b1;780,6997,b0;1612,6005,b0;1434,5900,b0;1367,5952,b0;1558,5545,b0;1695,5883,b0;2018,5781,b0;1997,5773,b0;1980,5789,b0;2246,5508,b0;1780,5920,b0;1812,6370,b0;2019,6735,b0;1806,6802,b0;1898,6254,b0;1919,6257,b0;1724,6200,b0;2315,6026,b0;2846,5645,b0;2842,5741,b0;2800,5851,b0;2920,6058,b0;2546,5716,b0;2615,5593,b0;2297,6090,b0;2712,5899,b0;2762,5884,b0;2790,5902,b0;2470,5573,b0;2817,5690,b0;2296,5903,b0;2554,5730,k0;2370,6253,b0;2701,6252,b0;2500,6702,b0;2400,6358,b0;2795,6704,b0;2513,6737,b0;2320,6455,b0;2526,6753,k0;3019,5538,b0;2948,5879,b0;2975,5826,b0;2943,6039,b0;2368,7309,b0;2402,7073,b0;4925,3529,k0;4943,3529,b0;5022,3771,b0;5130,3915,b1;5062,3922,b0;5145,3668,b0;4978,3754,b0;5108,3609,b0;5129,3793,b0;5151,3668,b0;5163,3758,b0;5001,4399,k0;4915,4450,k0;3568,3059,k1";
+
+const HINT = { b0: 'een bankje', b1: 'een picknicktafel', k0: 'een kunstwerk', k1: 'een fontein', k2: 'een monument', i0: 'een opvallend gebouw of bezienswaardigheid' };
+const TYPE_OF = { b: 'bankje', k: 'kunstwerk', i: 'iconisch' };
+function clipSouth(ring, limit) {      // knip een polygoon af op een breedtegraad
+  const out = [];
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length], ina = a[0] >= limit, inb = b[0] >= limit;
+    if (ina) out.push(a);
+    if (ina !== inb) { const t = (limit - a[0]) / (b[0] - a[0]); out.push([limit, a[1] + t * (b[1] - a[1])]); }
+  }
+  return out;
+}
+function fieldRings() { return SPEELVELD.map(a => clipSouth(a.ring, CONFIG.southLimit)).filter(r => r.length >= 3); }
+function builtinCandidates() {
+  return PUNTEN.split(';').map((s, i) => {
+    const [n, o, t, ...rest] = s.split(',');
+    return { id: 'p' + i, lat: 51.4 + n / 1e5, lng: 5.45 + o / 1e5, type: TYPE_OF[t[0]], hint: HINT[t], name: rest.join(' ') };
+  }).filter(c => c.lat >= CONFIG.southLimit);
+}
+
+/* =========================================================
+   GEOMETRIE
+   ========================================================= */
+const R = 6371000, rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
+function dist(a, b) {
+  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+function bearing(a, b) {
+  const y = Math.sin(rad(b.lng - a.lng)) * Math.cos(rad(b.lat));
+  const x = Math.cos(rad(a.lat)) * Math.sin(rad(b.lat)) - Math.sin(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.cos(rad(b.lng - a.lng));
+  return (deg(Math.atan2(y, x)) + 360) % 360;
+}
+function offset(p, meters, brg) {
+  const d = meters / R, b = rad(brg), la = rad(p.lat), lo = rad(p.lng);
+  const la2 = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b));
+  const lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2));
+  return { lat: deg(la2), lng: deg(lo2) };
+}
+function inPoly(p, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [yi, xi] = poly[i], [yj, xj] = poly[j];
+    if (((yi > p.lat) !== (yj > p.lat)) && (p.lng < (xj - xi) * (p.lat - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function centroid(poly) {
+  return { lat: poly.reduce((s, p) => s + p[0], 0) / poly.length, lng: poly.reduce((s, p) => s + p[1], 0) / poly.length };
+}
+const compassWord = d => ['N', 'NO', 'O', 'ZO', 'Z', 'ZW', 'W', 'NW'][Math.round(d / 45) % 8];
+const fmtDist = m => m >= 1000 ? (m / 1000).toFixed(2).replace('.', ',') + ' km' : Math.round(m) + ' m';
+const fmtTime = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const $ = id => document.getElementById(id);
+
+/* =========================================================
+   SPELSTATUS
+   ========================================================= */
+let S = null;          // het lopende spel (wordt opgeslagen)
+let pos = null;        // { lat, lng, acc }
+let heading = null;    // kompasrichting van de telefoon (graden), of null
+let geoWatch = null, tickTimer = null, wakeLock = null;
+
+function save() { try { localStorage.setItem('kompasjacht', JSON.stringify(S)); } catch (e) {} }
+function loadSaved() { try { return JSON.parse(localStorage.getItem('kompasjacht')); } catch (e) { return null; } }
+/* Scorebord: de beste potjes op deze telefoon */
+const BOARD_KEY = 'kompasjacht-scorebord', BOARD_SIZE = 10;
+function loadBoard() { try { return JSON.parse(localStorage.getItem(BOARD_KEY)) || []; } catch (e) { return []; } }
+function addToBoard(entry) {
+  const b = loadBoard(); b.push(entry);
+  b.sort((x, y) => y.score - x.score || x.at - y.at);
+  try { localStorage.setItem(BOARD_KEY, JSON.stringify(b.slice(0, 50))); } catch (e) {}
+  return b.indexOf(entry) + 1;
+}
+function renderBoard(el, highlightAt) {
+  const b = loadBoard().slice(0, BOARD_SIZE);
+  el.innerHTML = '';
+  for (const e of b) {
+    const li = document.createElement('li'); if (e.at === highlightAt) li.className = 'me';
+    const who = document.createElement('div'); who.className = 'who';
+    const nm = document.createElement('div'); nm.textContent = e.team;
+    const wh = document.createElement('div'); wh.className = 'when';
+    wh.textContent = new Date(e.at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) + ' · ' + e.minutes + ' min · ' + e.claims + (e.claims === 1 ? ' punt' : ' punten') + ' geclaimd';
+    who.append(nm, wh);
+    const sc = document.createElement('strong'); sc.textContent = e.score;
+    li.append(who, sc); el.appendChild(li);
+  }
+  return b.length;
+}
+function clearSaved() { try { localStorage.removeItem('kompasjacht'); } catch (e) {} }
+
+function target() { return S && S.targetId != null ? S.points.find(p => p.id === S.targetId) : null; }
+
+function pickCandidate(types, strict = true) {
+  const pool = S.candidates.filter(c =>
+    !S.usedIds.includes(c.id) &&
+    (!types || types.includes(c.type)) &&
+    (!strict || !pos || dist(c, pos) >= CONFIG.minDistFromPlayer) &&
+    (!strict || S.points.every(p => dist(c, p) >= CONFIG.minDistBetweenPoints)));
+  if (!pool.length) return null;
+  if (types) return pool[Math.floor(Math.random() * pool.length)];
+  // Mix van types: vooral bankjes, soms kunstwerken, af en toe iconisch
+  const weight = { bankje: .5, kunstwerk: .35, iconisch: .15 };
+  const avail = [...new Set(pool.map(c => c.type))];
+  let r = Math.random() * avail.reduce((s, t) => s + weight[t], 0), chosen = avail[avail.length - 1];
+  for (const t of avail) { r -= weight[t]; if (r <= 0) { chosen = t; break; } }
+  const sub = pool.filter(c => c.type === chosen);
+  return sub[Math.floor(Math.random() * sub.length)];
+}
+
+function spawnPoint(gold = false) {
+  const order = gold ? [['iconisch'], ['kunstwerk'], null] : [null];
+  let c = null;
+  for (const strict of [true, false]) {
+    for (const types of order) { c = pickCandidate(types, strict); if (c) break; }
+    if (c) break;
+  }
+  if (!c) return null;
+  S.usedIds.push(c.id);
+  const type = gold ? 'goud' : c.type;
+  // Zone-middelpunt willekeurig verschoven, zodat het midden niet het echte punt verraadt
+  const zone = offset(c, CONFIG.zoneRadius * 0.75 * Math.sqrt(Math.random()), Math.random() * 360);
+  const p = { id: S.nextId++, lat: c.lat, lng: c.lng, zone, type, hint: c.hint, name: c.name,
+    value: TYPES[type].value, claims: 0, maxClaims: gold ? 1 : CONFIG.claimsPerPoint };
+  S.points.push(p);
+  return p;
+}
+
+function removePoint(p) {
+  S.points = S.points.filter(x => x.id !== p.id);
+  if (p.type === 'goud') return;               // gouden punten tellen niet mee voor respawn
+  S.removedSinceSpawn++;
+  while (S.removedSinceSpawn >= CONFIG.respawnEvery) {
+    S.removedSinceSpawn -= CONFIG.respawnEvery;
+    for (let i = 0; i < CONFIG.respawnCount; i++) spawnPoint();
+  }
+}
+
+function claim(p) {
+  p.claims++;
+  const factor = CONFIG.payout[p.claims - 1] ?? 0;
+  const turbo = !!S.boosts.turbo;
+  const gained = Math.round(p.value * factor * (turbo ? 2 : 1));
+  S.boosts = {};                                  // turbo en magneet zijn verbruikt
+  S.score += gained;
+  S.log.push({ at: Date.now() - S.startedAt, type: p.type, label: p.name || p.hint, gained, rank: p.claims });
+  S.targetId = null;
+  // Solo-versie: na jouw claim verdwijnt het punt van jouw kaart.
+  // In multiplayer blijft het staan tot p.claims >= p.maxClaims.
+  removePoint(p);
+  save();
+  if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+  $('claimTitle').textContent = p.claims === 1 ? (p.type === 'goud' ? 'Goud geclaimd!' : 'Eerste!') : p.claims === 2 ? 'Tweede!' : 'Te laat…';
+  $('claimPoints').textContent = '+' + gained;
+  $('claimWhat').textContent = 'Dit was ' + (p.name ? p.name : p.hint) + '.' + (turbo ? ' Turbo: dubbele punten!' : '');
+  $('ovClaim').classList.add('show');
+}
+
+/* =========================================================
+   LOCATIE & KOMPAS
+   ========================================================= */
+function onPos(p) {
+  pos = p;
+  drawPlayer();
+  if (S && S.radarUntil > Date.now()) renderRadar();
+  const t = target();
+  if (t && !S.ended && !$('ovClaim').classList.contains('show') && dist(pos, t) <= claimRadius()) claim(t);
+  renderNav();
+}
+
+function startGeo() {
+  if (!navigator.geolocation) { banner('Deze browser geeft geen locatie door.'); return; }
+  geoWatch = navigator.geolocation.watchPosition(
+    g => onPos({ lat: g.coords.latitude, lng: g.coords.longitude, acc: g.coords.accuracy }),
+    e => banner('Geen GPS: ' + (e.code === 1 ? 'geef locatietoegang in je browser.' : e.message)),
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+}
+
+let compassBound = false, navFrame = false;
+async function startCompass() {
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      if (await DeviceOrientationEvent.requestPermission() !== 'granted') return;   // iPhone vraagt toestemming
+    }
+  } catch (e) { return; }
+  if (compassBound) return;
+  compassBound = true;
+  const handler = e => {
+    let h = null;
+    if (typeof e.webkitCompassHeading === 'number') h = e.webkitCompassHeading;     // iPhone
+    else if (e.absolute && e.alpha != null) h = 360 - e.alpha;                       // Android
+    if (h == null) return;
+    const so = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    heading = (h + so + 360) % 360;
+    if (!navFrame) { navFrame = true; requestAnimationFrame(() => { navFrame = false; renderNav(); }); }
+  };
+  if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', handler);
+  window.addEventListener('deviceorientation', handler);
+}
+
+async function keepAwake() {
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S && !S.ended) keepAwake(); });
+
+/* =========================================================
+   KAART
+   ========================================================= */
+let map = null, zoneLayer = null, playerMarker = null, fieldLayer = null, selectedId = null;
+
+function initMap() {
+  if (!map) {
+    map = L.map('map', { zoomControl: false, attributionControl: true });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19,
+      attribution: '&copy; OpenStreetMap' }).addTo(map);
+    zoneLayer = L.layerGroup().addTo(map);
+    map.on('click', closeSheet);
+  }
+  if (fieldLayer) fieldLayer.remove();
+  fieldLayer = L.featureGroup(S.field.map(r => L.polygon(r, { color: '#0f172a', weight: 2, fill: false, dashArray: '6 6', interactive: false }))).addTo(map);
+  map.fitBounds(fieldLayer.getBounds(), { padding: [20, 20] });
+}
+
+function drawZones() {
+  if (!map) return;
+  zoneLayer.clearLayers();
+  for (const p of S.points) {
+    const col = TYPES[p.type].color;
+    const circle = L.circle([p.zone.lat, p.zone.lng], { radius: CONFIG.zoneRadius, color: col, weight: 2, fillColor: col, fillOpacity: .18 });
+    const label = L.marker([p.zone.lat, p.zone.lng], { icon: L.divIcon({ className: '',
+      html: `<span class="zone-label ${p.type === 'goud' ? 'goud' : ''}">${p.value}</span>`, iconSize: [0, 0] }) });
+    const open = e => { L.DomEvent.stopPropagation(e); openSheet(p.id); };
+    circle.on('click', open); label.on('click', open);
+    zoneLayer.addLayer(circle); zoneLayer.addLayer(label);
+  }
+}
+
+function drawPlayer() {
+  if (!map || !pos) return;
+  if (!playerMarker) playerMarker = L.circleMarker([pos.lat, pos.lng], { radius: 8, color: '#fff', weight: 3, fillColor: '#22c55e', fillOpacity: 1 }).addTo(map);
+  else playerMarker.setLatLng([pos.lat, pos.lng]);
+}
+
+/* =========================================================
+   SCHERMEN
+   ========================================================= */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+  if (id === 'overview' && map) setTimeout(() => map.invalidateSize(), 50);
+}
+
+function openSheet(id) {
+  const p = S.points.find(x => x.id === id);
+  if (!p) return;
+  selectedId = id;
+  $('sheetTitle').textContent = TYPES[p.type].name;
+  $('sheetValue').textContent = p.value + ' punten';
+  $('sheetDist').textContent = pos ? '± ' + fmtDist(dist(pos, p.zone)) + ' ' + compassWord(bearing(pos, p.zone)) : 'afstand onbekend';
+  $('sheet').classList.add('open');
+  renderLock();
+}
+function closeSheet() { $('sheet').classList.remove('open'); selectedId = null; }
+
+function choose() {
+  if (selectedId == null || Date.now() < S.lockedUntil) return;
+  S.targetId = selectedId;
+  save();
+  closeSheet();
+  enterNav();
+}
+
+function enterNav() {
+  const t = target();
+  if (!t) { show('overview'); return; }
+  if (radarMap) radarMap._fitted = false;
+  $('navLookFor').textContent = t.hint;
+  $('navValue').textContent = TYPES[t.type].name + ' · ' + t.value + ' pt';
+  show('nav');
+  renderNav();
+  if (pos && dist(pos, t) <= claimRadius()) claim(t);
+}
+
+function renderNav() {
+  const t = target();
+  if (!t || !$('nav').classList.contains('active')) return;
+  if (!pos) { $('navDist').textContent = '-- m'; return; }
+  const d = dist(pos, t), b = bearing(pos, t);
+  const h = heading ?? 0;
+  $('navDist').textContent = fmtDist(d);
+  $('navArrow').style.transform = `rotate(${b - h}deg)`;
+  $('navNorth').style.transform = `rotate(${-h}deg)`;
+  $('navAcc').textContent = 'GPS: ±' + Math.round(pos.acc) + ' m';
+  $('navCompass').textContent = heading == null ? 'Geen kompas: N = boven' : 'Kompas aan';
+}
+
+function renderHud() {
+  const left = S.endsAt - Date.now();
+  for (const n of [1, 2]) {
+    $('hudScore' + n).textContent = S.score;
+    $('hudTime' + n).textContent = fmtTime(left);
+    $('hudTime' + n).classList.toggle('low', left < 5 * 60000);
+  }
+  renderLock();
+}
+
+function renderLock() {
+  const lockLeft = S.lockedUntil - Date.now();
+  const locked = lockLeft > 0;
+  $('hudLock').style.display = locked ? 'inline-block' : 'none';
+  $('hudLock').textContent = 'Wachten ' + fmtTime(lockLeft);
+  $('btnChoose').disabled = locked;
+  $('btnChoose').textContent = locked ? 'Wachten ' + fmtTime(lockLeft) : 'Kies dit punt';
+}
+
+let bannerTimer = null;
+function banner(text, gold = false) {
+  const b = $('banner');
+  b.textContent = text; b.classList.toggle('gold', gold); b.classList.add('show');
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(() => b.classList.remove('show'), 7000);
+}
+
+function tick() {
+  if (!S || S.ended) return;
+  renderBoosts(); renderRadar();
+  const elapsed = Date.now() - S.startedAt;
+  for (const m of CONFIG.goldAtMin) {
+    if (!S.goldDone.includes(m) && elapsed >= m * 60000 && S.endsAt - S.startedAt > m * 60000) {
+      S.goldDone.push(m);
+      if (spawnPoint(true)) {
+        save(); drawZones();
+        banner('Gouden punt verschenen! ' + TYPES.goud.value + ' punten, maar één team kan het claimen.', true);
+        if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+      }
+    }
+  }
+  if (Date.now() >= S.endsAt) return endGame();
+  renderHud();
+}
+
+function endGame() {
+  S.ended = true; S.targetId = null; save();
+  if (geoWatch != null) navigator.geolocation.clearWatch(geoWatch);
+  clearInterval(tickTimer);
+  $('ovClaim').classList.remove('show'); $('ovCancel').classList.remove('show');
+  $('endScore').textContent = S.score;
+  if (!S.boarded) {
+    S.boardAt = Date.now();
+    S.rank = addToBoard({ team: S.team, score: S.score, at: S.boardAt,
+      minutes: Math.round((S.endsAt - S.startedAt) / 60000), claims: S.log.filter(l => l.rank).length });
+    S.boarded = true; save();
+  }
+  $('endRank').textContent = S.team + ' staat op plek ' + S.rank + ' van het scorebord.';
+  renderBoard($('boardEnd'), S.boardAt);
+  $('endList').innerHTML = '';
+  for (const l of S.log) {
+    const li = document.createElement('li');
+    const name = document.createElement('span'); name.textContent = fmtTime(l.at) + ' · ' + l.label;
+    const pts = document.createElement('strong'); pts.textContent = (l.gained >= 0 ? '+' : '') + l.gained;
+    li.append(name, pts); $('endList').appendChild(li);
+  }
+  if (!S.log.length) $('endList').innerHTML = '<li><span>Geen punten geclaimd</span></li>';
+  show('end');
+}
+
+/* =========================================================
+   STARTEN
+   ========================================================= */
+function startGame() {
+  startCompass();      // moet direct na de tik, i.v.m. toestemming op iPhone
+  keepAwake();
+  const duration = Math.max(5, Math.min(240, +$('optDuration').value || 75));
+  const now = Date.now();
+  const team = ($('optTeam').value || '').trim() || 'Team zonder naam';
+  try { localStorage.setItem('kompasjacht-team', team); } catch (e) {}
+  S = { team, field: fieldRings(), boosts: {}, candidates: builtinCandidates(), points: [], usedIds: [], nextId: 1,
+    score: 0, log: [], goldDone: [], removedSinceSpawn: 0, targetId: null, lockedUntil: 0,
+    startedAt: now, endsAt: now + duration * 60000, ended: false };
+  for (let i = 0; i < CONFIG.activePoints; i++) spawnPoint();
+  save();
+  runGame();
+}
+
+function runGame() {
+  S.boosts = S.boosts || {};
+  S.team = S.team || 'Team zonder naam';
+  show('overview');
+  initMap();
+  drawZones();
+  drawPlayer();
+  startGeo();
+  clearInterval(tickTimer);
+  tickTimer = setInterval(tick, 1000);
+  tick();
+  if (target()) enterNav();
+}
+
+/* =========================================================
+   WINKEL
+   ========================================================= */
+function claimRadius() { return S && S.boosts && S.boosts.magneet ? MAGNET_RADIUS : CONFIG.claimRadius; }
+
+function openShop() {
+  $('shopScore').textContent = S.score;
+  const list = $('shopList'); list.innerHTML = '';
+  let multiHeader = false;
+  for (const item of SHOP) {
+    if (item.multi && !multiHeader) {
+      multiHeader = true;
+      const h = document.createElement('div'); h.className = 'shopsec'; h.textContent = 'Komt met meerdere teams'; list.appendChild(h);
+    }
+    const row = document.createElement('div'); row.className = 'shopitem';
+    const txt = document.createElement('div'); txt.className = 'txt';
+    const nm = document.createElement('strong'); nm.textContent = item.name;
+    const ds = document.createElement('span'); ds.className = 'small'; ds.textContent = item.desc;
+    txt.append(nm, ds);
+    const btn = document.createElement('button');
+    let reason = '';
+    if (item.multi) reason = 'Binnenkort';
+    else if (S.score < item.price) reason = item.price + ' pt';
+    else if (item.needsTarget && !target()) reason = 'Kies eerst een punt';
+    else if (item.id === 'radar' && S.radarUntil > Date.now()) reason = 'Actief';
+    else if (S.boosts[item.id]) reason = 'Actief';
+    btn.textContent = reason || 'Koop · ' + item.price;
+    btn.disabled = !!reason;
+    if (!reason) btn.className = 'primary';
+    btn.onclick = () => buy(item);
+    row.append(txt, btn); list.appendChild(row);
+  }
+  $('ovShop').classList.add('show');
+}
+
+function buy(item) {
+  if (S.score < item.price) return;
+  S.score -= item.price;
+  S.log.push({ at: Date.now() - S.startedAt, label: 'Winkel: ' + item.name, gained: -item.price });
+  if (item.id === 'radar') S.radarUntil = Date.now() + RADAR_SECONDS * 1000;
+  else S.boosts[item.id] = true;
+  save();
+  $('ovShop').classList.remove('show');
+  renderHud(); renderBoosts(); renderRadar();
+  banner(item.name + ' gekocht.');
+  const t = target();
+  if (t && pos && dist(pos, t) <= claimRadius()) claim(t);   // magneet kan je direct laten claimen
+}
+
+function renderBoosts() {
+  const el = $('navBoosts'); if (!el || !S) return;
+  el.innerHTML = '';
+  const add = txt => { const s = document.createElement('span'); s.className = 'tag on'; s.textContent = txt; el.appendChild(s); };
+  if (S.boosts.turbo) add('Turbo ×2');
+  if (S.boosts.magneet) add('Magneet ' + MAGNET_RADIUS + ' m');
+  if (S.radarUntil > Date.now()) add('Radar ' + Math.ceil((S.radarUntil - Date.now()) / 1000) + ' s');
+}
+
+let radarMap = null, radarTarget = null, radarMe = null;
+function renderRadar() {
+  const box = $('radarMap'), t = target();
+  const on = t && S.radarUntil > Date.now() && $('nav').classList.contains('active');
+  box.style.display = on ? 'block' : 'none';
+  if (!on) return;
+  if (!radarMap) {
+    radarMap = L.map('radarMap', { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(radarMap);
+  }
+  radarMap.invalidateSize();
+  if (!radarTarget) radarTarget = L.circleMarker([t.lat, t.lng], { radius: 9, color: '#fff', weight: 3, fillColor: '#ef4444', fillOpacity: 1 }).addTo(radarMap);
+  else radarTarget.setLatLng([t.lat, t.lng]);
+  const pts = [[t.lat, t.lng]];
+  if (pos) {
+    if (!radarMe) radarMe = L.circleMarker([pos.lat, pos.lng], { radius: 7, color: '#fff', weight: 3, fillColor: '#22c55e', fillOpacity: 1 }).addTo(radarMap);
+    else radarMe.setLatLng([pos.lat, pos.lng]);
+    pts.push([pos.lat, pos.lng]);
+  }
+  if (!radarMap._fitted) { radarMap.fitBounds(pts, { padding: [30, 30], maxZoom: 18 }); radarMap._fitted = true; }
+}
+
+document.querySelectorAll('[data-shop]').forEach(b => b.onclick = openShop);
+$('btnShopClose').onclick = () => $('ovShop').classList.remove('show');
+
+/* =========================================================
+   KNOPPEN
+   ========================================================= */
+$('btnStart').onclick = () => { clearSaved(); startGame(); };
+$('btnResume').onclick = () => { startCompass(); keepAwake(); S = loadSaved(); runGame(); };
+$('btnSheetClose').onclick = closeSheet;
+$('btnChoose').onclick = choose;
+$('btnClaimOk').onclick = () => { $('ovClaim').classList.remove('show'); drawZones(); show('overview'); };
+$('btnNew').onclick = () => { clearSaved(); location.reload(); };
+
+$('btnCancel').onclick = () => {
+  $('btnCancelTime').textContent = CONFIG.cancelTimeMin + ' minuten wachten';
+  $('btnCancelPoints').textContent = CONFIG.cancelPointCost + ' punten betalen';
+  $('btnCancelPoints').disabled = S.score < CONFIG.cancelPointCost;
+  $('ovCancel').classList.add('show');
+};
+function cancelTarget(byTime) {
+  if (byTime) S.lockedUntil = Date.now() + CONFIG.cancelTimeMin * 60000;
+  else S.score -= CONFIG.cancelPointCost;
+  S.targetId = null; save();
+  $('ovCancel').classList.remove('show');
+  drawZones(); show('overview'); renderHud();
+}
+$('btnCancelTime').onclick = () => cancelTarget(true);
+$('btnCancelPoints').onclick = () => cancelTarget(false);
+$('btnCancelBack').onclick = () => $('ovCancel').classList.remove('show');
+
+// Scorebord en vorige teamnaam op het startscherm
+try { $('optTeam').value = localStorage.getItem('kompasjacht-team') || ''; } catch (e) {}
+if (renderBoard($('boardStart'))) $('boardStartCard').style.display = 'flex';
+
+// Lopend spel gevonden?
+(() => {
+  const saved = loadSaved();
+  if (saved && !saved.ended && saved.endsAt > Date.now()) $('btnResume').style.display = 'block';
+  else if (saved && !saved.boarded && saved.endsAt <= Date.now()) {   // potje liep af terwijl de app dicht was
+    addToBoard({ team: saved.team || 'Team zonder naam', score: saved.score, at: saved.endsAt,
+      minutes: Math.round((saved.endsAt - saved.startedAt) / 60000), claims: (saved.log || []).filter(l => l.rank).length });
+    saved.boarded = true; saved.ended = true;
+    try { localStorage.setItem('kompasjacht', JSON.stringify(saved)); } catch (e) {}
+    if (renderBoard($('boardStart'))) $('boardStartCard').style.display = 'flex';
+  }
+})();
+</script>
+</body>
+</html>
