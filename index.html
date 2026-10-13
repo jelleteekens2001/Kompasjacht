@@ -231,7 +231,8 @@
   <div class="card rules">
     <h3>🏆 Punten</h3>
     <ul>
-      <li>Elk checkpoint is <strong>100 punten</strong> waard.</li>
+      <li>Elk team begint met <strong>100 punten</strong> startbudget, zodat je meteen iets in de winkel kunt kopen.</li>
+      <li>Elk checkpoint is <strong>100 punten</strong> waard, maar <strong>de waarde loopt af</strong> zodra je het kiest: 5 punten per minuut, tot minimaal 30. Hoe sneller je er bent, hoe meer je krijgt. Je ziet de actuele waarde in het kompasscherm.</li>
       <li>Alle teams zien dezelfde checkpoints. Het <strong>eerste</strong> team krijgt 100, het <strong>tweede</strong> 20, daarna niks. Na twee claims verdwijnt het checkpoint.</li>
       <li>Je ziet <strong>niet</strong> of een ander team er al geweest is. Dat merk je pas als je er bent. Een team dat al onderweg is, houdt zijn checkpoint, ook als het intussen verdwenen is.</li>
       <li>Elke keer als er 3 checkpoints verdwenen zijn, komen er 3 nieuwe bij.</li>
@@ -256,7 +257,7 @@
       <li><b>🌀 Kompasstoring</b> Het kompas van een ander team draait 2 minuten alle kanten op.</li>
       <li><b>🧊 Bevriezing</b> Een ander team kan 3 minuten niet claimen.</li>
     </ul>
-    <p class="small">Een team kan maximaal één keer per 10 minuten gesaboteerd worden, en ziet altijd wie het was.</p>
+    <p class="small">Na een aankoop moet je <strong>5 minuten wachten</strong> voordat je weer iets kunt kopen. Een team kan maximaal één keer per 10 minuten gesaboteerd worden, en ziet altijd wie het was.</p>
   </div>
   <div class="card rules">
     <h3>🗺️ Speelveld</h3>
@@ -388,7 +389,7 @@
 <div class="overlay" id="ovShop">
   <div class="modal">
     <h2>Winkel</h2>
-    <p><strong id="shopScore">0</strong> punten · werkt direct</p>
+    <p><strong id="shopScore">0</strong> punten · werkt direct<span id="shopCool" style="color:var(--gold)"></span></p>
     <div class="list" id="shopList"></div>
     <button class="danger" id="btnShopClose">Sluiten</button>
   </div>
@@ -449,6 +450,10 @@ const CONFIG = {
   pointValue: 100,          // elk bankje is evenveel waard
   goldValue: 300,           // gouden bankje
   mapMaxZoom: 16,           // verder inzoomen kan niet (anders zie je de bankjes op de kaart)
+  startBudget: 100,         // punten waarmee elk team begint
+  shopCooldownMin: 5,       // na een aankoop in de winkel: 5 minuten niks kopen
+  decayPerMin: 0.05,        // een gekozen checkpoint verliest 5% van zijn waarde per minuut onderweg...
+  decayFloor: 0.3,          // ...maar blijft minstens 30% waard
   claimsPerPoint: 2,        // een punt verdwijnt na 2 claims
   payout: [1, 0.2],         // 1e claim 100%, 2e claim 20%, daarna niks
   cancelTimeMin: 2,         // annuleren: wachttijd in minuten...
@@ -622,7 +627,7 @@ async function createGame() {
     const res = await db.ref('games/' + code + '/meta').transaction(m => m ? undefined :
       { host: ME.id, status: 'lobby', durationMin: duration, field: FIELD_KEY, createdAt: Date.now() + timeOffset });
     if (res.committed) {
-      await db.ref('games/' + code + '/teams/' + ME.id).set({ name, score: 0, joinedAt: now() });
+      await db.ref('games/' + code + '/teams/' + ME.id).set({ name, score: CONFIG.startBudget, joinedAt: now() });
       return enterGame(code);
     }
   }
@@ -640,7 +645,7 @@ async function joinGame() {
   if (!meta) return showErr('Geen spel gevonden met code ' + code + '.');
   if (meta.status === 'ended') return showErr('Dit spel is al afgelopen.');
   ME.id = newId(10, 'abcdefghijkmnpqrstuvwxyz23456789'); ME.name = name;
-  await db.ref('games/' + code + '/teams/' + ME.id).set({ name, score: 0, joinedAt: now() });
+  await db.ref('games/' + code + '/teams/' + ME.id).set({ name, score: CONFIG.startBudget, joinedAt: now() });
   enterGame(code);
 }
 
@@ -693,7 +698,7 @@ function onMeta() {
 
 function onTeams() {
   if (!G.teams[ME.id] && G.meta) {          // na herladen of als we ontbreken: opnieuw aanmelden
-    G.ref.child('teams/' + ME.id).update({ name: ME.name, score: 0, joinedAt: now(), online: true });
+    G.ref.child('teams/' + ME.id).update({ name: ME.name, score: CONFIG.startBudget, joinedAt: now(), online: true });
     return;
   }
   // lobby
@@ -850,7 +855,7 @@ async function tryClaim() {
     rank = p.claims[ME.id];
     const factor = CONFIG.payout[rank - 1] ?? 0;
     const turbo = !!LS.boosts.turbo;
-    const gained = Math.round(p.value * factor * (turbo ? 2 : 1));
+    const gained = Math.round(liveValue(p) * factor * (turbo ? 2 : 1));
     LS.boosts = {}; LS.targetId = null;
     LS.log.push({ at: now() - G.meta.startedAt, label: p.type === 'goud' ? 'Gouden checkpoint' : 'Checkpoint', gained, rank });
     saveLocal();
@@ -1029,7 +1034,7 @@ function closeSheet() { $('sheet').classList.remove('open'); selectedId = null; 
 
 function choose() {
   if (selectedId == null || now() < LS.lockedUntil || LS.targetId) return;
-  LS.targetId = selectedId; saveLocal();
+  LS.targetId = selectedId; LS.targetSince = now(); saveLocal();
   G.ref.child('teams/' + ME.id + '/target').set(selectedId);
   closeSheet(); enterNav();
 }
@@ -1039,10 +1044,23 @@ function enterNav() {
   const t = target(); if (!t) { toMap(); return; }
   if (radarMap) radarMap._fitted = false;
   $('navLookFor').textContent = t.type === 'goud' ? 'het gouden checkpoint' : 'het checkpoint';
-  $('navValue').textContent = t.value + ' punten';
+  renderValue();
   show('nav');
   renderNav(); renderNavTags(); renderRadar();
   tryClaim();
+}
+
+/* Waarde van het gekozen checkpoint loopt af zolang je onderweg bent */
+function decayFactor() {
+  const mins = Math.max(0, (now() - (LS.targetSince || now())) / 60000);
+  return Math.max(CONFIG.decayFloor, 1 - CONFIG.decayPerMin * mins);
+}
+function liveValue(p) { return Math.round(p.value * decayFactor()); }
+function renderValue() {
+  const t = target(); if (!t) return;
+  const v = liveValue(t);
+  $('navValue').textContent = 'Nu waard: ' + v + ' pt' + (v < t.value ? ' (van ' + t.value + ')' : '');
+  $('navValue').className = 'tag' + (v < t.value * 0.6 ? ' bad' : v < t.value ? ' on' : '');
 }
 
 function renderNav() {
@@ -1146,6 +1164,8 @@ function tick() {
   if (!G || !G.meta || G.meta.status !== 'running') return;
   if (now() >= G.meta.endsAt) return endGame();
   renderHud(); renderNavTags(); renderRadar();
+  if (shownScreen === 'nav') renderValue();
+  if ($('ovShop').classList.contains('show') && (shopCooldown() > 0 || $('shopCool').textContent)) openShop();   // aftellen bijwerken
   if (shownScreen === 'wait') {
     const left = LS.lockedUntil - now();
     if (left <= 0) { show('overview'); banner('Je mag weer een checkpoint kiezen.', 'gold'); }
@@ -1194,12 +1214,14 @@ function endGame() {
 async function spend(amount, label) {
   const res = await G.ref.child('teams/' + ME.id + '/score').transaction(v => (v || 0) >= amount ? (v || 0) - amount : undefined);
   if (!res.committed) return false;
+  if (label.startsWith('Winkel:')) LS.shopCooldownUntil = now() + CONFIG.shopCooldownMin * 60000;
   LS.log.push({ at: now() - G.meta.startedAt, label, gained: -amount }); saveLocal();
   return true;
 }
 
 function openShop() {
   $('shopScore').textContent = myScore();
+  $('shopCool').textContent = shopCooldown() > 0 ? ' · volgende aankoop over ' + fmtTime(shopCooldown()) : '';
   const list = $('shopList'); list.innerHTML = '';
   let section = '', grid = null;
   const others = Object.keys(G.teams).filter(id => id !== ME.id).length;
@@ -1211,7 +1233,8 @@ function openShop() {
       grid = document.createElement('div'); grid.className = 'shopgrid'; list.appendChild(grid);
     }
     let reason = '';
-    if (myScore() < item.price) reason = 'Te weinig punten';
+    if (shopCooldown() > 0) reason = 'Nog ' + fmtTime(shopCooldown());
+    else if (myScore() < item.price) reason = 'Te weinig punten';
     else if (item.kind === 'team' && !others) reason = 'Geen andere teams';
     else if (item.needsTarget && !target()) reason = 'Kies eerst een checkpoint';
     else if (item.id === 'radar' && LS.radarUntil > now()) reason = 'Actief';
@@ -1232,7 +1255,10 @@ function openShop() {
   $('ovShop').classList.add('show');
 }
 
+function shopCooldown() { return Math.max(0, (LS.shopCooldownUntil || 0) - now()); }
+
 async function buySelf(item) {
+  if (shopCooldown() > 0) return banner('Je kunt pas over ' + fmtTime(shopCooldown()) + ' weer iets kopen.');
   $('ovShop').classList.remove('show');
   if (item.id === 'verkenner') {
     const t = target(); if (!t) return;
@@ -1276,6 +1302,7 @@ function openPick(item) {
 }
 
 async function useOnTeam(item, tid) {
+  if (shopCooldown() > 0) { $('ovPick').classList.remove('show'); return banner('Je kunt pas over ' + fmtTime(shopCooldown()) + ' weer iets kopen.'); }
   $('ovPick').classList.remove('show');
   const tname = (G.teams[tid] || {}).name || 'dat team';
   if (item.spy) {
