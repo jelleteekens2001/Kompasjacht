@@ -239,7 +239,7 @@
     <ul>
       <li>Elk team begint met <strong>100 punten</strong> startbudget, zodat je meteen iets in de winkel kunt kopen.</li>
       <li>Elk checkpoint is <strong>100 punten</strong> waard, maar <strong>de waarde loopt af</strong> vanaf 3 minuten na het kiezen: 5% per minuut, tot minimaal 30%. Hoe sneller je er bent, hoe meer je krijgt. Je ziet het actuele percentage in het kompasscherm.</li>
-      <li>Alle teams zien dezelfde checkpoints. Het <strong>eerste</strong> team krijgt 100, het <strong>tweede</strong> 20, daarna niks. Na twee claims verdwijnt het checkpoint.</li>
+      <li>Alle teams zien dezelfde checkpoints. Het <strong>eerste</strong> team krijgt 100%, het <strong>tweede</strong> 30%, daarna niks. Na twee claims verdwijnt het checkpoint.</li>
       <li>Je ziet <strong>niet</strong> of een ander team er al geweest is. Dat merk je pas als je er bent. Een team dat al onderweg is, houdt zijn checkpoint, ook als het intussen verdwenen is.</li>
       <li>Elke keer als er 3 checkpoints verdwenen zijn, komen er 3 nieuwe bij.</li>
       <li>Op minuut 25 en 55 verschijnt een <strong>gouden checkpoint</strong> van 300 punten. Alleen het eerste team scoort.</li>
@@ -477,7 +477,7 @@ const CONFIG = {
   decayPerMin: 0.05,        // ...daarna verliest het checkpoint 5% van zijn waarde per minuut...
   decayFloor: 0.3,          // ...maar blijft minstens 30% waard
   claimsPerPoint: 2,        // een punt verdwijnt na 2 claims
-  payout: [1, 0.2],         // 1e claim 100%, 2e claim 20%, daarna niks
+  payout: [1, 0.3],         // 1e claim 100%, 2e claim 30%, daarna niks
   cancelTimeMin: 2,         // annuleren: wachttijd in minuten...
   cancelPointCost: 40,      // ...of zoveel punten
   goldAtMin: [25, 55],      // momenten waarop een gouden punt verschijnt
@@ -1300,7 +1300,7 @@ async function buySelf(item) {
     const n = (t.claimCount || 0) - (t.claims && t.claims[ME.id] ? 1 : 0);
     const gold = t.type === 'goud';
     if (n === 0) return showInfo('✅', 'Nog niemand geweest!', 'Jullie checkpoint is nog door geen enkel team geclaimd. Als jullie als eerste aankomen, krijg je de volle waarde.', 'var(--accent)');
-    if (n === 1 && !gold) return showInfo('⚠️', 'Er was al één team', 'Jullie checkpoint is al 1 keer geclaimd. Je kunt hier nog 20% halen.', 'var(--gold)');
+    if (n === 1 && !gold) return showInfo('⚠️', 'Er was al één team', 'Jullie checkpoint is al 1 keer geclaimd. Je kunt hier nog 30% halen.', 'var(--gold)');
     return showInfo('❌', 'Te laat!', 'Jullie checkpoint is al ' + n + ' keer geclaimd. Hier valt niks meer te halen. Annuleren is misschien slimmer.', 'var(--danger)');
   }
   if (!await spend(item.price, 'Winkel: ' + item.name)) return banner('Niet genoeg punten.', 'bad');
