@@ -230,7 +230,7 @@
     <ol>
       <li><strong>Kies een zone.</strong> Op de kaart staan vlekken met hun puntwaarde. Ergens in zo'n vlek ligt een checkpoint, niet per se in het midden. In <strong>Eindhoven</strong> is elk checkpoint een bankje; in <strong>Schagerbrug</strong> een herkenbare plek, zoals de kerk, een brug, een bushalte of de speeltuin.</li>
       <li><strong>Volg het kompas.</strong> Na het kiezen verdwijnt de kaart. Je ziet alleen nog een pijl en de afstand in vogelvlucht. Een andere route zoeken mag, de pijl wijst altijd recht naar het checkpoint.</li>
-      <li><strong>Vind het checkpoint.</strong> Sta binnen <strong>3 meter</strong> van het checkpoint en je claimt automatisch. Je krijgt geen seintje als je in de buurt bent: kijk zelf goed rond.</li>
+      <li><strong>Vind het checkpoint.</strong> Sta binnen <strong>3 meter</strong> van het checkpoint en blijf even staan: na 2 seconden claim je automatisch. Bij slechte GPS-ontvangst rekent de app wat ruimer. Je krijgt geen seintje als je in de buurt bent: kijk zelf goed rond.</li>
       <li><strong>Volgende!</strong> Pas na een claim kies je een nieuwe zone. Je kunt dus maar één checkpoint tegelijk zoeken.</li>
     </ol>
   </div>
@@ -472,6 +472,11 @@ const CONFIG = {
   goldValue: 300,           // gouden bankje
   mapMaxZoom: 16,           // verder inzoomen kan niet (anders zie je de bankjes op de kaart)
   startBudget: 100,         // punten waarmee elk team begint
+  gpsMaxAcc: 30,            // GPS-metingen met een afwijking boven 30 m worden genegeerd
+  gpsMaxSpeed: 12,          // sprongen sneller dan 12 m/s (43 km/u) zijn meetfouten en worden genegeerd
+  gpsWalkNoise: 2,          // hoeveel je positie per seconde kan veranderen (m), voor het gladstrijken
+  claimAccBonusMax: 15,     // claimstraal groeit mee met de GPS-afwijking, maar maximaal 15 m extra
+  claimDwellSec: 2,         // je moet zo lang binnen de straal blijven om te claimen
   shopCooldownMin: 5,       // na een aankoop in de winkel: 5 minuten niks kopen
   decayGraceMin: 3,         // de eerste 3 minuten na het kiezen blijft de waarde 100%...
   decayPerMin: 0.05,        // ...daarna verliest het checkpoint 5% van zijn waarde per minuut...
@@ -853,10 +858,15 @@ async function maybeSpawnGold() {
    ========================================================= */
 function claimRadius() { return LS.boosts.magneet ? MAGNET_RADIUS : CONFIG.claimRadius; }
 
+let insideSince = 0;
+// Effectieve straal: basis + de huidige GPS-onzekerheid (gemaximeerd), zodat je bij slechte ontvangst niet vastloopt
+function effectiveRadius() { return claimRadius() + Math.min(pos ? pos.acc : 0, CONFIG.claimAccBonusMax); }
 async function tryClaim() {
   const t = target();
   if (!t || claiming || !pos || G.meta.status !== 'running') return;
-  if (dist(pos, t) > claimRadius()) return;
+  if (dist(pos, t) > effectiveRadius()) { insideSince = 0; return; }
+  if (!insideSince) insideSince = Date.now();
+  if (Date.now() - insideSince < CONFIG.claimDwellSec * 1000) return;   // even blijven staan
   if (effectOn('bevriezing')) { renderNavTags(); return; }
   claiming = true;
   const pid = LS.targetId;
@@ -878,7 +888,7 @@ async function tryClaim() {
     const factor = CONFIG.payout[rank - 1] ?? 0;
     const turbo = !!LS.boosts.turbo;
     const gained = Math.round(liveValue(p) * factor * (turbo ? 2 : 1));
-    LS.boosts = {}; LS.targetId = null;
+    LS.boosts = {}; LS.targetId = null; insideSince = 0;
     LS.log.push({ at: now() - G.meta.startedAt, label: p.type === 'goud' ? 'Gouden checkpoint' : 'Checkpoint', gained, rank });
     saveLocal();
     if (gained) await G.ref.child('teams/' + ME.id + '/score').transaction(v => (v || 0) + gained);
@@ -898,7 +908,28 @@ async function tryClaim() {
 /* =========================================================
    LOCATIE & KOMPAS
    ========================================================= */
-function onPos(p) {
+/* GPS-pijplijn: slechte metingen weggooien, sprongen negeren en gladstrijken (eenvoudig Kalman-filter).
+   Elke meting telt mee naar rato van hoe nauwkeurig de telefoon zegt dat hij is. */
+const KF = { lat: null, lng: null, P: 0, t: 0, rejects: 0 };
+function filterPos(m) {
+  const t = Date.now(), acc = Math.max(1, m.acc || 1);
+  if (KF.lat == null) { Object.assign(KF, { lat: m.lat, lng: m.lng, P: acc * acc, t, rejects: 0 }); return { lat: m.lat, lng: m.lng, acc }; }
+  const dt = Math.max(0.2, (t - KF.t) / 1000);
+  const jump = dist({ lat: KF.lat, lng: KF.lng }, m) / dt;
+  const bad = acc > CONFIG.gpsMaxAcc || jump > CONFIG.gpsMaxSpeed + acc / dt;
+  if (bad && ++KF.rejects < 4) return null;                      // 3x achter elkaar fout? dan toch overnemen (bijv. echte verplaatsing)
+  if (bad) { Object.assign(KF, { lat: m.lat, lng: m.lng, P: acc * acc, t, rejects: 0 }); return { lat: m.lat, lng: m.lng, acc }; }
+  KF.rejects = 0;
+  KF.P += CONFIG.gpsWalkNoise * CONFIG.gpsWalkNoise * dt;        // onzekerheid groeit met de tijd (je kunt gelopen hebben)
+  const K = KF.P / (KF.P + acc * acc);                           // nauwkeurige meting telt zwaarder
+  KF.lat += K * (m.lat - KF.lat); KF.lng += K * (m.lng - KF.lng);
+  KF.P *= (1 - K); KF.t = t;
+  return { lat: KF.lat, lng: KF.lng, acc: Math.sqrt(KF.P) };
+}
+
+function onPos(raw) {
+  const p = filterPos(raw);
+  if (!p) return;
   pos = p;
   drawPlayer();
   if (G && G.meta && G.meta.status === 'running') {
@@ -1186,7 +1217,7 @@ function tick() {
   if (!G || !G.meta || G.meta.status !== 'running') return;
   if (now() >= G.meta.endsAt) return endGame();
   renderHud(); renderNavTags(); renderRadar();
-  if (shownScreen === 'nav') renderValue();
+  if (shownScreen === 'nav') { renderValue(); if (insideSince && !$('ovClaim').classList.contains('show')) tryClaim(); }
   if ($('ovShop').classList.contains('show') && (shopCooldown() > 0 || $('shopWait').classList.contains('show'))) openShop();   // aftellen bijwerken
   if (shownScreen === 'wait') {
     const left = LS.lockedUntil - now();
