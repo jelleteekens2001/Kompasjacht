@@ -236,7 +236,7 @@
       <li><strong>Kies een zone.</strong> Op de kaart staan vlekken met hun puntwaarde. Ergens in zo'n vlek ligt een checkpoint, niet per se in het midden. In <strong>Eindhoven</strong> en <strong>Amersfoort</strong> is elk checkpoint een bushalte of abri, brievenbus, watertappunt of fontein; in <strong>Schagerbrug</strong> een herkenbare plek, zoals de kerk, een brug, een bushalte of de speeltuin.</li>
       <li><strong>Volg het kompas.</strong> Na het kiezen verdwijnt de kaart. Je ziet alleen nog een pijl en de afstand in vogelvlucht. Een andere route zoeken mag, de pijl wijst altijd recht naar het checkpoint.</li>
       <li><strong>Vind het checkpoint.</strong> Sta binnen <strong>3 meter</strong> van het checkpoint en blijf even staan: na 2 seconden claim je automatisch. Bij slechte GPS-ontvangst rekent de app wat ruimer. In het kompasscherm staat een ❔. Pas als je binnen 15 meter bent, verandert die in het symbool van wat je zoekt: 🚏 bushalte of abri, 📮 brievenbus, 🚰 watertappunt of ⛲ fontein. Kijk dan goed rond.</li>
-      <li><strong>Volgende!</strong> Pas na een claim kies je een nieuwe zone. Je kunt dus maar één checkpoint tegelijk zoeken. Je hebt <strong>2 minuten</strong> om te kiezen; twijfel je langer, dan krijg je een willekeurig checkpoint toegewezen. In het voorbeeld van een zone zie je geen afstand, alleen na het kiezen.</li>
+      <li><strong>Volgende!</strong> Pas na een claim kies je een nieuwe zone. Je kunt dus maar één checkpoint tegelijk zoeken. Op de kaart staan ongeveer 3,5 zones per team. Je hebt <strong>2 minuten</strong> om te kiezen; twijfel je langer, dan krijg je een willekeurig checkpoint toegewezen. In het voorbeeld van een zone zie je geen afstand, alleen na het kiezen.</li>
     </ol>
   </div>
   <div class="card rules">
@@ -466,7 +466,7 @@ const FIREBASE_CONFIG = {
    SPELREGELS — pas hier de getallen aan
    ========================================================= */
 const CONFIG = {
-  pointsPerTeam: 2.5,       // zoveel punten per team op de kaart...
+  pointsPerTeam: 3.5,       // zoveel zones per team op de kaart...
   minPoints: 6,             // ...maar minstens zoveel
   respawnEvery: 3,          // na elke 3 verdwenen punten...
   respawnCount: 3,          // ...komen er 3 nieuwe bij
@@ -806,10 +806,10 @@ function pickCandidates(used, n, gold, extraTaken = []) {
     }
     if (!c) break;
     used[c.id] = true;
-    // zone-middelpunt willekeurig verschoven, zodat het midden het bankje niet verraadt
-    const zone = offset(c, CONFIG.zoneRadius * 0.85 * Math.sqrt(Math.random()), Math.random() * 360);
+    // zone-middelpunt willekeurig verschoven (het midden verraadt het checkpoint niet), en de hele zone binnen het speelveld
+    const zone = makeZone(c);
     out.push({ cid: c.id, kind: c.kind || '', lat: c.lat, lng: c.lng, zoneLat: zone.lat, zoneLng: zone.lng, type: gold ? 'goud' : 'bankje',
-      seed: Math.floor(Math.random() * 1e9),
+      seed: zone.seed, zoneScale: zone.scale,
       value: gold ? CONFIG.goldValue : CONFIG.pointValue, maxClaims: gold ? 1 : CONFIG.claimsPerPoint, claimCount: 0, createdAt: now() });
   }
   return out;
@@ -1026,18 +1026,49 @@ function initMap() {
 function seeded(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const zoneCache = {};
 function zonePoly(p) {
-  const key = p.seed + ':' + p.zoneLat;
+  const key = p.seed + ':' + p.zoneLat + ':' + (p.zoneScale || 1);
   if (zoneCache[key]) return zoneCache[key];
-  const rnd = seeded(p.seed || 1), c = { lat: p.zoneLat, lng: p.zoneLng };
+  const c = { lat: p.zoneLat, lng: p.zoneLng };
+  return zoneCache[key] = clampToField(zoneShape(c, p.seed || 1, p.zoneScale || 1, p), c);
+}
+function zoneShape(c, seed, base, target) {
+  const rnd = seeded(seed);
   const h = [[2, .16 + rnd() * .1, rnd() * 6.3], [3, .08 + rnd() * .1, rnd() * 6.3], [5, .04 + rnd() * .06, rnd() * 6.3]];
   const shape = scale => Array.from({ length: 48 }, (_, i) => {
     const th = i / 48 * 2 * Math.PI;
     const f = 1 + h.reduce((s, [k, a, ph]) => s + a * Math.sin(k * th + ph), 0);
     const q = offset(c, CONFIG.zoneRadius * f * scale, th * 180 / Math.PI); return [q.lat, q.lng];
   });
-  let scale = 1, poly = shape(scale);
-  while (!inPoly(p, poly) && scale < 2) { scale += .1; poly = shape(scale); }
-  return zoneCache[key] = poly;
+  let scale = base, poly = shape(scale);
+  while (!inPoly(target, poly) && scale < base * 2) { scale += .1 * base; poly = shape(scale); }
+  return poly;
+}
+const inField = q => FIELD.some(r => inPoly({ lat: q[0], lng: q[1] }, r));
+// Hoekpunten die buiten het speelveld vallen naar binnen schuiven (langs de lijn naar het midden van de zone)
+function clampToField(poly, c) {
+  if (!inField([c.lat, c.lng])) return poly;
+  return poly.map(q => {
+    if (inField(q)) return q;
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; inField([c.lat + (q[0] - c.lat) * m, c.lng + (q[1] - c.lng) * m]) ? lo = m : hi = m; }
+    const m = lo * 0.98; return [c.lat + (q[0] - c.lat) * m, c.lng + (q[1] - c.lng) * m];
+  });
+}
+// Zoek een zone die helemaal in het speelveld ligt; lukt dat niet, dan een iets kleinere zone
+function makeZone(c) {
+  let best = null;
+  for (const scale of [1, .9, .8, .7, .6, .5, .4]) {
+    for (let k = 0; k < 30; k++) {
+      const z = offset(c, CONFIG.zoneRadius * scale * 0.85 * Math.sqrt(Math.random()), Math.random() * 360);
+      if (!inField([z.lat, z.lng])) continue;
+      const seed = Math.floor(Math.random() * 1e9);
+      const poly = zoneShape(z, seed, scale, c);
+      const outside = poly.filter(q => !inField(q)).length;
+      if (!best || outside < best.outside) best = { lat: z.lat, lng: z.lng, seed, scale, outside };
+      if (!outside) return best;
+    }
+  }
+  return best || { lat: c.lat, lng: c.lng, seed: Math.floor(Math.random() * 1e9), scale: .5 };
 }
 
 function visiblePoints() {
