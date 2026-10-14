@@ -105,7 +105,10 @@
   .compass .north { position: absolute; inset: 0; }
   .compass .north span { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); font-size: 13px; font-weight: 700; color: var(--danger); }
   .dist { font-size: 52px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-  .lookfor { font-size: 18px; text-align: center; }
+  .lookfor { font-size: 64px; line-height: 1; text-align: center; min-height: 64px; transition: transform .2s; }
+  .lookfor.gold { filter: drop-shadow(0 0 10px #eab308); }
+  .lookfor.near { animation: pop .4s ease-out; }
+  @keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
   .meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .navfoot { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
   .waitbody { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; }
@@ -230,7 +233,7 @@
     <ol>
       <li><strong>Kies een zone.</strong> Op de kaart staan vlekken met hun puntwaarde. Ergens in zo'n vlek ligt een checkpoint, niet per se in het midden. In <strong>Eindhoven</strong> is elk checkpoint een abri (bushalte met wachthuisje), brievenbus, watertappunt of fontein; in <strong>Schagerbrug</strong> een herkenbare plek, zoals de kerk, een brug, een bushalte of de speeltuin.</li>
       <li><strong>Volg het kompas.</strong> Na het kiezen verdwijnt de kaart. Je ziet alleen nog een pijl en de afstand in vogelvlucht. Een andere route zoeken mag, de pijl wijst altijd recht naar het checkpoint.</li>
-      <li><strong>Vind het checkpoint.</strong> Sta binnen <strong>3 meter</strong> van het checkpoint en blijf even staan: na 2 seconden claim je automatisch. Bij slechte GPS-ontvangst rekent de app wat ruimer. Pas als je binnen 15 meter bent, zie je wat het checkpoint is (bijvoorbeeld een brievenbus). Kijk dan goed rond.</li>
+      <li><strong>Vind het checkpoint.</strong> Sta binnen <strong>3 meter</strong> van het checkpoint en blijf even staan: na 2 seconden claim je automatisch. Bij slechte GPS-ontvangst rekent de app wat ruimer. In het kompasscherm staat een ❔. Pas als je binnen 15 meter bent, verandert die in het symbool van wat je zoekt: 🚏 abri, 📮 brievenbus, 🚰 watertappunt of ⛲ fontein. Kijk dan goed rond.</li>
       <li><strong>Volgende!</strong> Pas na een claim kies je een nieuwe zone. Je kunt dus maar één checkpoint tegelijk zoeken. Je hebt <strong>2 minuten</strong> om te kiezen; twijfel je langer, dan krijg je een willekeurig checkpoint toegewezen. In het voorbeeld van een zone zie je geen afstand, alleen na het kiezen.</li>
     </ol>
   </div>
@@ -329,7 +332,7 @@
     <div style="text-align:right"><div class="small">Tijd</div><div class="time" data-time>--:--</div></div>
   </div>
   <div class="body">
-    <div class="lookfor">Zoek <strong id="navLookFor">het checkpoint</strong></div>
+    <div class="lookfor" id="navLookFor" aria-label="Wat je zoekt">❔</div>
     <div class="compass">
       <div class="north" id="navNorth"><span>N</span></div>
       <div class="arrow" id="navArrow"><svg viewBox="0 0 100 100"><path d="M50 10 L66 60 L50 52 L34 60 Z" fill="#22c55e"/></svg></div>
@@ -1119,14 +1122,17 @@ function renderValue() {
 }
 
 /* Wat zoek je? Pas dichtbij (15 m) verschijnt de soort, bijv. "de brievenbus". */
-const LIDWOORD = { abri: 'de abri', brievenbus: 'de brievenbus', watertappunt: 'het watertappunt', fontein: 'de fontein' };
+const SYMBOOL = { abri: '🚏', brievenbus: '📮', watertappunt: '🚰', fontein: '⛲' };
 function renderLookFor() {
   const t = target(); if (!t) return;
   const kind = t.kind || (CAND_BY_ID[t.cid] || {}).kind;
-  const near = kind && pos && dist(pos, t) <= CONFIG.revealKindM;
-  let txt = t.type === 'goud' ? 'het gouden checkpoint' : 'het checkpoint';
-  if (near) txt = (t.type === 'goud' ? 'de gouden ' : '') + (t.type === 'goud' ? kind : LIDWOORD[kind] || kind);
-  $('navLookFor').textContent = txt;
+  const near = !!(kind && pos && dist(pos, t) <= CONFIG.revealKindM);
+  const el = $('navLookFor');
+  const sym = near ? (SYMBOOL[kind] || '📍') : '❔';
+  if (el.textContent !== sym) {
+    el.textContent = sym;
+    el.className = 'lookfor' + (t.type === 'goud' ? ' gold' : '') + (near ? ' near' : '');
+  }
 }
 
 function renderNav() {
