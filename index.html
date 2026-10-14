@@ -230,7 +230,7 @@
     <ol>
       <li><strong>Kies een zone.</strong> Op de kaart staan vlekken met hun puntwaarde. Ergens in zo'n vlek ligt een checkpoint, niet per se in het midden. In <strong>Eindhoven</strong> is elk checkpoint een abri (bushalte met wachthuisje), brievenbus, watertappunt of fontein; in <strong>Schagerbrug</strong> een herkenbare plek, zoals de kerk, een brug, een bushalte of de speeltuin.</li>
       <li><strong>Volg het kompas.</strong> Na het kiezen verdwijnt de kaart. Je ziet alleen nog een pijl en de afstand in vogelvlucht. Een andere route zoeken mag, de pijl wijst altijd recht naar het checkpoint.</li>
-      <li><strong>Vind het checkpoint.</strong> Sta binnen <strong>3 meter</strong> van het checkpoint en blijf even staan: na 2 seconden claim je automatisch. Bij slechte GPS-ontvangst rekent de app wat ruimer. Je krijgt geen seintje als je in de buurt bent: kijk zelf goed rond.</li>
+      <li><strong>Vind het checkpoint.</strong> Sta binnen <strong>3 meter</strong> van het checkpoint en blijf even staan: na 2 seconden claim je automatisch. Bij slechte GPS-ontvangst rekent de app wat ruimer. Pas als je binnen 15 meter bent, zie je wat het checkpoint is (bijvoorbeeld een brievenbus). Kijk dan goed rond.</li>
       <li><strong>Volgende!</strong> Pas na een claim kies je een nieuwe zone. Je kunt dus maar één checkpoint tegelijk zoeken. Je hebt <strong>2 minuten</strong> om te kiezen; twijfel je langer, dan krijg je een willekeurig checkpoint toegewezen. In het voorbeeld van een zone zie je geen afstand, alleen na het kiezen.</li>
     </ol>
   </div>
@@ -477,6 +477,7 @@ const CONFIG = {
   gpsWalkNoise: 2,          // hoeveel je positie per seconde kan veranderen (m), voor het gladstrijken
   claimAccBonusMax: 15,     // claimstraal groeit mee met de GPS-afwijking, maar maximaal 15 m extra
   claimDwellSec: 2,         // je moet zo lang binnen de straal blijven om te claimen
+  revealKindM: 15,          // pas binnen 15 m zie je wat het checkpoint is (bijv. een brievenbus)
   shopCooldownMin: 5,       // na een aankoop in de winkel: 5 minuten niks kopen
   decayGraceMin: 3,         // de eerste 3 minuten na het kiezen blijft de waarde 100%...
   decayPerMin: 0.05,        // ...daarna verliest het checkpoint 5% van zijn waarde per minuut...
@@ -1097,7 +1098,7 @@ let radarMap = null, radarTarget = null, radarMe = null;
 function enterNav() {
   const t = target(); if (!t) { toMap(); return; }
   if (radarMap) radarMap._fitted = false;
-  $('navLookFor').textContent = t.type === 'goud' ? 'het gouden checkpoint' : 'het checkpoint';
+  renderLookFor();
   renderValue();
   show('nav');
   renderNav(); renderNavTags(); renderRadar();
@@ -1117,6 +1118,17 @@ function renderValue() {
   $('navValue').className = 'tag' + (pct < 60 ? ' bad' : pct < 100 ? ' on' : '');
 }
 
+/* Wat zoek je? Pas dichtbij (15 m) verschijnt de soort, bijv. "de brievenbus". */
+const LIDWOORD = { abri: 'de abri', brievenbus: 'de brievenbus', watertappunt: 'het watertappunt', fontein: 'de fontein' };
+function renderLookFor() {
+  const t = target(); if (!t) return;
+  const kind = t.kind || (CAND_BY_ID[t.cid] || {}).kind;
+  const near = kind && pos && dist(pos, t) <= CONFIG.revealKindM;
+  let txt = t.type === 'goud' ? 'het gouden checkpoint' : 'het checkpoint';
+  if (near) txt = (t.type === 'goud' ? 'de gouden ' : '') + (t.type === 'goud' ? kind : LIDWOORD[kind] || kind);
+  $('navLookFor').textContent = txt;
+}
+
 function renderNav() {
   const t = target();
   if (!t || shownScreen !== 'nav') return;
@@ -1126,6 +1138,7 @@ function renderNav() {
   if (effectOn('kompasstoring')) b = (Date.now() / 7 + Math.sin(Date.now() / 900) * 140) % 360;
   const h = heading ?? 0;
   $('navDist').textContent = effectOn('mist') ? '??? m' : fmtDist(d);
+  renderLookFor();
   $('navArrow').style.transform = `rotate(${b - h}deg)`;
   $('navNorth').style.transform = `rotate(${-h}deg)`;
   $('navAcc').textContent = 'GPS: ±' + Math.round(pos.acc) + ' m';
